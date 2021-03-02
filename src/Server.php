@@ -228,9 +228,7 @@ class Server
                     $result = $e->getMessage();
                     Logger::getInstance()->error($result);
                 } catch (\Throwable $e) { //use \Throwable instead of \Exception, because PHP Fatal error can not be try catch by \Exception
-                    $result = $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine();
-                    var_dump($e->getTrace());
-                    $result = HttpController::getErrorResponse($result);
+                    $result = HttpController::getErrorResponse($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                     Logger::getInstance()->error($result);
                 } finally {
                     $response->end($result);
@@ -308,7 +306,7 @@ class Server
                         $errType = "Unknown Error: ";
                         break;
                 }
-                //todo need backstrace
+
                 throw new \Exception("$errType $errStr");
             });
 
