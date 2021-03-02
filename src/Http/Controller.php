@@ -10,7 +10,7 @@ namespace Refink\Http;
 
 use Refink\Exception\ApiException;
 
-abstract class AbstractController
+interface Controller
 {
     /**
      * get the successful response string
@@ -18,7 +18,7 @@ abstract class AbstractController
      * @param string $msg
      * @return string
      */
-    abstract public function success($data, $msg = ''): string;
+     public function success($data, $msg = ''): string;
 
     /**
      * manual throw exception with the error response string
@@ -26,7 +26,7 @@ abstract class AbstractController
      * @param array $data
      * @throws ApiException
      */
-    abstract public function renderError($errMsg, $data = []);
+     public function renderError($errMsg, $data = []);
 
     /**
      * get the error response string
@@ -34,5 +34,5 @@ abstract class AbstractController
      * @param array $data
      * @return string
      */
-    abstract public function error($errMsg, $data = []): string;
+     public function error($errMsg, $data = []): string;
 }

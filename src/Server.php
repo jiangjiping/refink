@@ -12,7 +12,10 @@ use Refink\Database\Config\RedisConfig;
 use Refink\Database\Pool\MySQLPool;
 use Refink\Database\Pool\RedisPool;
 use Refink\Exception\ApiException;
+use Refink\Exception\MiddlewareException;
 use Refink\Http\AbstractController;
+use Refink\Http\Controller;
+use Refink\Http\HttpController;
 use Refink\Http\Route;
 use Refink\Log\Logger;
 use Swoole\Http\Request;
@@ -176,27 +179,39 @@ class Server
                     $response->end("{$request->server['request_method']} to the request uri \"{$request->server['request_uri']}\" fail, route not found!");
                     return;
                 }
+                $params = array();
+                if (!empty($request->get)) {
+                    $params = array_merge($params, $request->get);
+                }
+                if (!empty($request->post)) {
+                    $params = array_merge($params, $request->post);
+                }
+
                 try {
+                    //processing http middleware
+                    $result = '';
                     foreach ($route['middleware'] as $alias) {
-                        $middleware = Route::getMiddlewareByAlias($alias);
-                    }
-                    $params = array();
-                    if (!empty($request->get)) {
-                        $params = array_merge($params, $request->get);
-                    }
-                    if (!empty($request->post)) {
-                        $params = array_merge($params, $request->post);
-                    }
-                    if (is_array($route['func'])) {
-                        $class = $route['func'][0];
-                        $action = $route['func'][1];
-                        /** @var AbstractController $class */
-                        $class = new $class;
-                        $result = $class->$action($params);
-                    } else {
-                        $result = call_user_func($route['func'], $params);
+                        $middlewares = Route::getMiddlewareByAlias($alias);
+                        foreach ($middlewares as $mid) {
+                            call_user_func([(new $mid), 'handle'], $params);
+                        }
                     }
 
+                    if (empty($result)) {
+                        if (is_array($route['func'])) {
+                            $class = $route['func'][0];
+                            $action = $route['func'][1];
+                            /** @var Controller $class */
+                            $class = new $class;
+                            $result = $class->$action($params);
+                        } else {
+                            $result = call_user_func($route['func'], $params);
+                        }
+                    }
+
+                } catch (MiddlewareException $e) {
+                    $result = $e->getMessage();
+                    Logger::error($result);
                 } catch (ApiException $e) {
                     $result = $e->getMessage();
                     Logger::error($result);
@@ -214,15 +229,21 @@ class Server
 
         $this->swooleServer->on('start', function ($server) {
             cli_set_process_title("$this->processName:Master");
+            Terminal::echoTableLine();
             if ($this->serverType & self::SERVER_TYPE_HTTP) {
-                echo str_pad("http server", 20) . Terminal::getColoredText("http://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
+                echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
             if ($this->serverType & self::SERVER_TYPE_WEBSOCKET) {
-                echo str_pad("websocket server", 20) . Terminal::getColoredText("ws://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
+                echo str_pad("websocket server", 18) . '|  ' . Terminal::getColoredText("ws://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
-            echo str_pad("app log path", 20) . (empty($this->appLogPath) ? "-" : $this->appLogPath) . PHP_EOL;
-            echo str_pad("swoole version", 20) . SWOOLE_VERSION . PHP_EOL;
-            echo str_pad("php version", 20) . PHP_VERSION . PHP_EOL;
+            // Terminal::echoTableLine();
+            echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? "-" : $this->appLogPath) . PHP_EOL;
+            //Terminal::echoTableLine();
+            echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;
+            // Terminal::echoTableLine();
+            echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
+            Terminal::echoTableLine();
+            echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
 
         });
 
@@ -303,7 +324,7 @@ class Server
 LOGO;
         $logo .= PHP_EOL;
 
-        echo Terminal::getColoredText($logo, Terminal::BOLD_GREEN);
+        echo Terminal::getColoredText($logo, Terminal::GREEN);
 
     }
 

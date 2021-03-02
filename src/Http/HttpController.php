@@ -10,7 +10,7 @@ namespace Refink\Http;
 
 use Refink\Exception\ApiException;
 
-class HttpController extends AbstractController
+class HttpController implements Controller
 {
 
     public function success($data, $msg = 'OK'): string

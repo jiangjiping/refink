@@ -85,5 +85,10 @@ class Terminal
         return $color . $text . self::RESET;
     }
 
+    public static function echoTableLine()
+    {
+        echo str_pad("*", 20, "*") . str_pad("*", 30, "*") . PHP_EOL;
+    }
+
 
 }

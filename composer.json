@@ -16,16 +16,16 @@
   "autoload": {
     "psr-4": {
       "Refink\\": "src/",
-      "App\\": "App/"
+      "App\\": "app/"
     },
     "files": [
-      "App/routes.php"
+      "app/routes.php"
     ]
   },
   "autoload-dev": {
     "psr-4": {
       "Refink\\": "src/",
-      "App\\": "App/"
+      "App\\": "app/"
     }
   }
 }
