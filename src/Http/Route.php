@@ -38,10 +38,10 @@ class Route
             $uri = '/' . trim(self::$currentGroupInfo['uri_prefix'], "/") . '/' . trim($uri, "/");
         }
         if (!empty($middleware)) {
-            self::bindMiddleware($httpMethod, $uri, $middleware);
+            self::middleware($httpMethod, $uri, $middleware);
         }
         if (!empty(self::$currentGroupInfo['middleware'])) {
-            self::bindMiddleware($httpMethod, $uri, self::$currentGroupInfo['middleware']);
+            self::middleware($httpMethod, $uri, self::$currentGroupInfo['middleware']);
         }
 
         self::$routes[$httpMethod][$uri]['func'] = $func;
@@ -54,12 +54,12 @@ class Route
 
 
     /**
-     * 给路由绑定中间件
+     * bind middleware to route uri
      * @param $httpMethod
      * @param $uri
      * @param array $middleware
      */
-    private static function bindMiddleware($httpMethod, $uri, array $middleware = [])
+    private static function middleware($httpMethod, $uri, array $middleware = [])
     {
         if (isset(self::$routes[$httpMethod][$uri])) {
             return;

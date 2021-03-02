@@ -19,6 +19,7 @@ use Refink\Http\Route;
 use Refink\Log\Logger;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
+use Swoole\Server\Task;
 
 \co::set(['hook_flags' => SWOOLE_HOOK_ALL]);
 
@@ -119,6 +120,8 @@ class Server
         }
         $this->settings['pid_file'] = __DIR__ . "/{$this->processName}.server.pid";
         $this->settings['log_file'] = __DIR__ . "/swoole.log";
+        $this->settings['task_worker_num'] = 4;
+        $this->settings['task_enable_coroutine'] = true;
         $this->listen = $listen;
         $this->port = $port;
         $this->serverType = $serverType;
@@ -176,7 +179,7 @@ class Server
             });
 
             $this->swooleServer->on('close', function ($server, $fd) {
-                echo "client {$fd} closed\n";
+              //  echo "client {$fd} closed\n";
             });
         }
 
@@ -215,9 +218,9 @@ class Server
                             $action = $route['func'][1];
                             /** @var Controller $class */
                             $class = new $class;
-                            $result = $class->$action($params);
+                            $result = $class->$action($params, $this->swooleServer);
                         } else {
-                            $result = call_user_func($route['func'], $params);
+                            $result = call_user_func($route['func'], $params, $this->swooleServer);
                         }
                     }
 
@@ -251,6 +254,11 @@ class Server
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
 
+        });
+
+        $this->swooleServer->on('task', function ($server, Task $task) {
+            //var_dump($arg);
+           $data = ($task->data);
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
