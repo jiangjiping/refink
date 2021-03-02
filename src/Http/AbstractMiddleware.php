@@ -11,7 +11,7 @@ use Refink\Exception\MiddlewareException;
 
 abstract class AbstractMiddleware
 {
-    abstract public function handle($request);
+    abstract public function handle(&$request);
 
     public function terminate($errMsg)
     {

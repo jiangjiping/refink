@@ -10,52 +10,75 @@ namespace Refink\Log;
 
 class Logger
 {
+    private static $instance;
 
-    private static $appLogPath;
-    private static $appLogFilePrefix = 'Refink';
+    private $appLogPath;
+    private $appLogFilePrefix = 'Refink';
+
+    /**
+     * after append the log then execute the appLogHandler
+     * @var callable
+     */
+    private $appLogHandler;
 
     const LEVEL_INFO = 'INFO';
     const LEVEL_WARNING = 'WARNING';
     const LEVEL_ERROR = 'ERROR';
     const LEVEL_NOTICE = 'NOTICE';
 
-    public static function init($path, $appLogFilePrefix = 'Refink')
+    private function __construct(...$args)
     {
-        self::$appLogPath = $path;
-        self::$appLogFilePrefix = $appLogFilePrefix;
     }
 
-    private static function log($level, $content)
+    private function __clone()
+    {
+    }
+
+    /**
+     * @param mixed ...$args
+     * @return self
+     */
+    public static function getInstance(...$args)
+    {
+        if (is_null(self::$instance)) {
+            self::$instance = new static(...$args);
+            empty($args[0]) || self::$instance->appLogPath = $args[0];
+            empty($args[1]) || self::$instance->appLogHandler = $args[1];
+            empty($args[2]) || self::$instance->appLogFilePrefix = $args[2];
+        }
+        return self::$instance;
+    }
+
+    private function log($level, $content)
     {
         $nowTime = time();
-        if (empty(self::$appLogPath)) {
-            self::$appLogPath = "/var/log";
-        }
         $date = date("Y/m/d H:i:s", $nowTime);
-        $appName = self::$appLogFilePrefix;
+        $prefix = strtolower($this->appLogFilePrefix);
         $level = strtolower($level);
-        file_put_contents(self::$appLogPath . "/{$appName}." . date('Ymd', $nowTime) . ".{$level}.log", "[$date] \"{$level}\" $content" . PHP_EOL, FILE_APPEND);
+        file_put_contents($this->appLogPath . "/{$prefix}." . date('Ymd', $nowTime) . ".{$level}.log", "[$date] \"{$level}\" $content" . PHP_EOL, FILE_APPEND);
+        if (is_callable($this->appLogHandler)) {
+            call_user_func($this->appLogHandler);
+        }
     }
 
-    public static function notice($content)
+    public function notice($content)
     {
-        self::log(self::LEVEL_NOTICE, $content);
+        $this->log(self::LEVEL_NOTICE, $content);
     }
 
-    public static function warning($content)
+    public function warning($content)
     {
-        self::log(self::LEVEL_WARNING, $content);
+        $this->log(self::LEVEL_WARNING, $content);
     }
 
-    public static function info($content)
+    public function info($content)
     {
-        self::log(self::LEVEL_INFO, $content);
+        $this->log(self::LEVEL_INFO, $content);
     }
 
-    public static function error($content)
+    public function error($content)
     {
-        self::log(self::LEVEL_ERROR, $content);
+        $this->log(self::LEVEL_ERROR, $content);
     }
-
 
 }

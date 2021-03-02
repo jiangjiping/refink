@@ -19,20 +19,20 @@ class Route
     /**
      * add a http get method static route
      * @param string $uri eg: /user/login
-     * @param callable $func
+     * @param  $func
      * @param array $middleware
      */
-    public static function get(string $uri, callable $func, array $middleware = [])
+    public static function get(string $uri, $func, array $middleware = [])
     {
         self::addRoute(self::HTTP_GET, $uri, $func, $middleware);
     }
 
-    public static function post(string $uri, callable $func, array $middleware = [])
+    public static function post(string $uri, $func, array $middleware = [])
     {
         self::addRoute(self::HTTP_POST, $uri, $func, $middleware);
     }
 
-    private static function addRoute($httpMethod, string $uri, callable $func, array $middleware)
+    private static function addRoute($httpMethod, string $uri, $func, array $middleware)
     {
         if (!empty(self::$currentGroupInfo['uri_prefix'])) {
             $uri = '/' . trim(self::$currentGroupInfo['uri_prefix'], "/") . '/' . trim($uri, "/");

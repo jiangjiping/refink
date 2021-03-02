@@ -35,4 +35,13 @@ class HttpController implements Controller
     {
         throw new ApiException($this->error($errMsg, $data));
     }
+
+    public static function getErrorResponse($errMsg, $data = []): string
+    {
+        return json_encode([
+            'code' => 500,
+            'data' => $data,
+            'msg'  => $errMsg
+        ]);
+    }
 }

@@ -18,7 +18,7 @@ interface Controller
      * @param string $msg
      * @return string
      */
-     public function success($data, $msg = ''): string;
+    public function success($data, $msg = ''): string;
 
     /**
      * manual throw exception with the error response string
@@ -26,7 +26,7 @@ interface Controller
      * @param array $data
      * @throws ApiException
      */
-     public function renderError($errMsg, $data = []);
+    public function renderError($errMsg, $data = []);
 
     /**
      * get the error response string
@@ -34,5 +34,13 @@ interface Controller
      * @param array $data
      * @return string
      */
-     public function error($errMsg, $data = []): string;
+    public function error($errMsg, $data = []): string;
+
+    /**
+     * get the error response string by static method
+     * @param $errMsg
+     * @param array $data
+     * @return string
+     */
+    public static function getErrorResponse($errMsg, $data = []): string;
 }

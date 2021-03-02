@@ -13,7 +13,6 @@ use Refink\Database\Pool\MySQLPool;
 use Refink\Database\Pool\RedisPool;
 use Refink\Exception\ApiException;
 use Refink\Exception\MiddlewareException;
-use Refink\Http\AbstractController;
 use Refink\Http\Controller;
 use Refink\Http\HttpController;
 use Refink\Http\Route;
@@ -37,6 +36,10 @@ class Server
      */
     const SERVER_TYPE_WEBSOCKET = 2;
 
+    const WEBSOCKET_ON_MESSAGE = 'message';
+    const WEBSOCKET_ON_OPEN = 'open';
+    const WEBSOCKET_ON_CLOSE = 'close';
+
     /**
      * @var string http server default content type
      */
@@ -52,7 +55,14 @@ class Server
     private $mysqlPoolCreateFunc;
     private $redisPoolCreateFunc;
 
-    private $appLogPath;
+    private $appName = 'Refink';
+
+    private $appLogPath = '/var/log';
+
+    /**
+     * @var callable
+     */
+    private $appLogHandler;
 
     /**
      * the address listen by the server socket.
@@ -193,10 +203,12 @@ class Server
                     foreach ($route['middleware'] as $alias) {
                         $middlewares = Route::getMiddlewareByAlias($alias);
                         foreach ($middlewares as $mid) {
-                            call_user_func([(new $mid), 'handle'], $params);
+                            (new $mid)->handle($params);
+                            //call_user_func([(new $mid), 'handle'], $params);
                         }
                     }
 
+                    //route dispatch
                     if (empty($result)) {
                         if (is_array($route['func'])) {
                             $class = $route['func'][0];
@@ -211,16 +223,15 @@ class Server
 
                 } catch (MiddlewareException $e) {
                     $result = $e->getMessage();
-                    Logger::error($result);
+                    Logger::getInstance()->error($result);
                 } catch (ApiException $e) {
                     $result = $e->getMessage();
-                    Logger::error($result);
+                    Logger::getInstance()->error($result);
                 } catch (\Throwable $e) { //use \Throwable instead of \Exception, because PHP Fatal error can not be try catch by \Exception
                     $result = $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine();
-                    if (isset($class)) {
-                        $result = $class->error($result, []);
-                    }
-                    Logger::error($result);
+                    var_dump($e->getTrace());
+                    $result = HttpController::getErrorResponse($result);
+                    Logger::getInstance()->error($result);
                 } finally {
                     $response->end($result);
                 }
@@ -236,11 +247,8 @@ class Server
             if ($this->serverType & self::SERVER_TYPE_WEBSOCKET) {
                 echo str_pad("websocket server", 18) . '|  ' . Terminal::getColoredText("ws://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
-            // Terminal::echoTableLine();
-            echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? "-" : $this->appLogPath) . PHP_EOL;
-            //Terminal::echoTableLine();
+            echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? Terminal::getColoredText("not config!", Terminal::RED) : $this->appLogPath) . PHP_EOL;
             echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;
-            // Terminal::echoTableLine();
             echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
@@ -300,7 +308,7 @@ class Server
                         $errType = "Unknown Error: ";
                         break;
                 }
-
+                //todo need backstrace
                 throw new \Exception("$errType $errStr");
             });
 
@@ -396,11 +404,32 @@ LOGO;
     }
 
     /**
-     * @param $path
+     * [optional] set app log handler
+     * @param $logPath
+     * @param callable $func
+     * @return $this
      */
-    public function setAppLogPath($path)
+    public function setAppLogHandler($logPath, callable $func)
     {
-        $this->appLogPath = $path;
+        if (!empty($logPath)) {
+            $this->appLogPath = $logPath;
+        }
+        if (is_callable($func)) {
+            $this->appLogHandler = $func;
+        }
+        return $this;
+    }
+
+    public function setAppName($name)
+    {
+        if (!empty($name)) {
+            $this->appName = $name;
+        }
+    }
+
+    public function setWebSocketEvent($event, callable $func)
+    {
+        $this->swooleServer->on($event, $func);
     }
 
     public function run()
@@ -413,6 +442,8 @@ LOGO;
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
         $this->showLogo();
+        //init log handler
+        Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
         $this->swooleServer->start();
     }
 }
