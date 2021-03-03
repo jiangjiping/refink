@@ -15,7 +15,10 @@ use Refink\Exception\ApiException;
 use Refink\Exception\MiddlewareException;
 use Refink\Http\Controller;
 use Refink\Http\Route;
+use Refink\Job\JobChannel;
+use Refink\Job\RedisQueue;
 use Refink\Log\Logger;
+use Swoole\Coroutine\Channel;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Server\Task;
@@ -54,6 +57,13 @@ class Server
 
     private $mysqlPoolCreateFunc;
     private $redisPoolCreateFunc;
+
+    /**
+     * @var callable where the job receive from
+     */
+    private $receiveJobHandler;
+
+    private $jobConcurrentNum = 1024;
 
     private $appName = 'Refink';
 
@@ -206,7 +216,6 @@ class Server
                         $middlewares = Route::getMiddlewareByAlias($alias);
                         foreach ($middlewares as $mid) {
                             (new $mid)->handle($params);
-                            //call_user_func([(new $mid), 'handle'], $params);
                         }
                     }
 
@@ -238,7 +247,7 @@ class Server
         }
 
         $this->swooleServer->on('start', function ($server) {
-            cli_set_process_title("$this->processName:Master");
+            cli_set_process_title("$this->processName: master");
             Terminal::echoTableLine();
             if ($this->serverType & self::SERVER_TYPE_HTTP) {
                 echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
@@ -260,10 +269,16 @@ class Server
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
-            cli_set_process_title("$this->processName:Manager");
+            cli_set_process_title("$this->processName: manager");
         });
         $this->swooleServer->on('workerStart', function ($server, $workerId) {
-            cli_set_process_title("$this->processName:Worker");
+            $name = "worker";
+            $inTaskWorker = false;
+            if ($workerId >= $this->swooleServer->setting['worker_num']) {
+                $name = "task worker";
+                $inTaskWorker = true;
+            }
+            cli_set_process_title("$this->processName: {$name}");
             if (is_callable($this->redisPoolCreateFunc)) {
                 call_user_func($this->redisPoolCreateFunc);
             }
@@ -272,57 +287,84 @@ class Server
             }
 
             //set php error handler
-            set_error_handler(function ($errno, $errStr, $errFile, $errLine) {
-                $errType = '';
-                switch ($errno) {
-                    case E_ERROR:
-                        $errType = 'Php Fatal Error: ';
-                        break;
-                    case E_WARNING:
-                        $errType = 'Php Warning: ';
-                        break;
-                    case E_PARSE:
-                        $errType = 'Php Parse Error: ';
-                        break;
-                    case E_NOTICE:
-                        $errType = 'Php Notice: ';
-                        break;
-                    case E_CORE_ERROR:
-                        $errType = 'Php Core Error: ';
-                        break;
-                    case E_CORE_WARNING:
-                        $errType = 'Php Core Warning: ';
-                        break;
-                    case E_COMPILE_ERROR:
-                        $errType = 'Php Compile error: ';
-                        break;
-                    case E_COMPILE_WARNING:
-                        $errType = 'php Compile Warning: ';
-                        break;
-                    case E_USER_ERROR:
-                        $errType = 'Php User Error: ';
-                        break;
-                    case E_USER_WARNING:
-                        $errType = 'Php User Warning: ';
-                        break;
-                    case E_USER_NOTICE:
-                        $errType = 'Php User Notice: ';
-                        break;
-                    default:
-                        $errType = "Unknown Error: ";
-                        break;
+            $this->setErrorHandler();
+            //task worker callback
+            if ($inTaskWorker && is_callable($this->receiveJobHandler)) {
+                //this channel use to control worker's max coroutine num, also like rate limit
+                //$workerChannel = new Channel($this->jobConcurrentNum);
+                while (true) {
+                    $job = call_user_func($this->receiveJobHandler, $workerId - $this->swooleServer->setting['worker_num']);
+                    if (empty($job)) {
+                        // print_r("job empty\n");
+                        \co::sleep(0.2);
+                        continue;
+                    }
+                    //$workerChannel->push($job);
+                    //main coroutine dispatch job to user queue
+                    $channel = JobChannel::getInstance($job->getGroupId());
+                    $channel->push($job);
+
+                    go(function () use ($channel, $job) {
+                        defer(function () use ($channel) {
+                            $channel->pop();
+                        });
+                        \co::sleep(mt_rand(5, 10));
+                        $job->handle();
+                    });
                 }
-
-                throw new \Exception("$errType $errStr");
-            });
-
-
+            }
         });
 
         $this->swooleServer->set($this->settings);
 
     }
 
+    private function setErrorHandler()
+    {
+        set_error_handler(function ($errno, $errStr, $errFile, $errLine) {
+            $errType = '';
+            switch ($errno) {
+                case E_ERROR:
+                    $errType = 'Php Fatal Error: ';
+                    break;
+                case E_WARNING:
+                    $errType = 'Php Warning: ';
+                    break;
+                case E_PARSE:
+                    $errType = 'Php Parse Error: ';
+                    break;
+                case E_NOTICE:
+                    $errType = 'Php Notice: ';
+                    break;
+                case E_CORE_ERROR:
+                    $errType = 'Php Core Error: ';
+                    break;
+                case E_CORE_WARNING:
+                    $errType = 'Php Core Warning: ';
+                    break;
+                case E_COMPILE_ERROR:
+                    $errType = 'Php Compile error: ';
+                    break;
+                case E_COMPILE_WARNING:
+                    $errType = 'php Compile Warning: ';
+                    break;
+                case E_USER_ERROR:
+                    $errType = 'Php User Error: ';
+                    break;
+                case E_USER_WARNING:
+                    $errType = 'Php User Warning: ';
+                    break;
+                case E_USER_NOTICE:
+                    $errType = 'Php User Notice: ';
+                    break;
+                default:
+                    $errType = "Unknown Error: ";
+                    break;
+            }
+
+            throw new \Exception("$errType $errStr");
+        });
+    }
 
     private function showLogo()
     {
@@ -434,6 +476,20 @@ LOGO;
     public function setWebSocketEvent($event, callable $func)
     {
         $this->swooleServer->on($event, $func);
+    }
+
+    /**
+     * [optional] set the swoole task worker receive job callback func, if set this
+     * the task worker will loop for this handler
+     * @param callable $func
+     * @param int $jobConcurrentNum how many job can concurrent running
+     * @return $this
+     */
+    public function receiveJobHandler(callable $func, $jobConcurrentNum = 1024)
+    {
+        $this->receiveJobHandler = $func;
+        $this->jobConcurrentNum = $jobConcurrentNum;
+        return $this;
     }
 
     public function run()

@@ -8,9 +8,15 @@
 namespace Refink\Http;
 
 use Refink\Exception\ApiException;
+use Refink\Job\Dispatcher;
+use Refink\Job\RedisQueue;
 
-class Controller implements AbstractController
+class Controller implements ControllerInterface
 {
+    /**
+     * @var callable
+     */
+    private static $jobDispatcher;
 
     public function success($data, $msg = 'OK'): string
     {
@@ -29,5 +35,11 @@ class Controller implements AbstractController
 
     public function dispatch($job)
     {
+        if (is_callable(self::$jobDispatcher)) {
+            call_user_func(self::$jobDispatcher);
+            return;
+        }
+        (new RedisQueue())->enqueue($job);
     }
+
 }

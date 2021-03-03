@@ -46,6 +46,7 @@ class MySQLPool extends AbstractPool
     public function connect(int $nowTime)
     {
         $pdo = new \PDO($this->config['dsn'], $this->config['username'], $this->config['passwd'], $this->config['options']);
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         $conn = new Connection($pdo, $nowTime);
         $this->pool->push($conn);
     }

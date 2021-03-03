@@ -10,7 +10,7 @@ namespace Refink\Http;
 
 use Refink\Exception\ApiException;
 
-interface AbstractController
+interface ControllerInterface
 {
     /**
      * get the successful response string
