@@ -32,10 +32,10 @@ trait Common
 
         GET_NEW_CONN:
         /** @var Connection $conn */
-        $conn = self::$pools[$name]->pop();
+        $conn = self::getInstance($name)->pop();
         self::$coroutineContext[$cid] = $conn;
         defer(function () use ($conn, $name, $cid) {
-            self::$pools[$name]->push($conn);
+            self::getInstance($name)->push($conn);
             unset(self::$coroutineContext[$cid]);
         });
         return $conn->getDbCli();

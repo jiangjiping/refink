@@ -129,8 +129,6 @@ class Server
         }
         $this->settings['pid_file'] = __DIR__ . "/{$this->processName}.server.pid";
         $this->settings['log_file'] = __DIR__ . "/swoole.log";
-        $this->settings['task_worker_num'] = 4;
-        $this->settings['task_enable_coroutine'] = true;
         $this->listen = $listen;
         $this->port = $port;
         $this->serverType = $serverType;
@@ -315,8 +313,6 @@ class Server
             }
         });
 
-        $this->swooleServer->set($this->settings);
-
     }
 
     private function setErrorHandler()
@@ -416,8 +412,7 @@ LOGO;
     public function initMySQLPool(int $size, MySQLConfig $config)
     {
         $this->mysqlPoolCreateFunc = function () use ($size, $config) {
-            $pool = new MySQLPool();
-            $pool->initPool($size, $config);
+            MySQLPool::initPool($size, $config);
         };
         return $this;
     }
@@ -431,8 +426,7 @@ LOGO;
     public function initRedisPool(int $size, RedisConfig $config)
     {
         $this->redisPoolCreateFunc = function () use ($size, $config) {
-            $pool = new RedisPool();
-            $pool->initPool($size, $config);
+            RedisPool::initPool($size, $config);
         };
 
         return $this;
@@ -494,6 +488,7 @@ LOGO;
 
     public function run()
     {
+        $this->swooleServer->set($this->settings);
         //reload
         pcntl_signal(SIGUSR1, function () {
             $this->swooleServer->reload();

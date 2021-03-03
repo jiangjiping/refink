@@ -25,7 +25,9 @@ abstract class AbstractPool
      */
     protected $pool;
 
-    abstract public function initPool($size, AbstractConfig $config, $name = "default");
+    abstract public static function initPool($size, AbstractConfig $config, $name = "default");
+
+    abstract public static function getInstance($name);
 
     /**
      * get the database connection object

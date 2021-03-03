@@ -19,7 +19,7 @@ class MySQLPool extends AbstractPool
 
     protected static $size;
 
-    public function initPool($size, AbstractConfig $config, $name = "default")
+    private function __construct($size, AbstractConfig $config, $name = "default")
     {
         $size < 1 && $size = 1;
         $this->pool = new Channel($size);
@@ -29,8 +29,22 @@ class MySQLPool extends AbstractPool
             $this->connect($nowTime);
         }
         $this->heartbeat();
+    }
 
-        self::$pools[$name] = $this->pool;
+    private function __clone()
+    {
+    }
+
+    public static function initPool($size, AbstractConfig $config, $name = "default")
+    {
+        if (!isset(self::$pools[$name])) {
+            self::$pools[$name] = new static($size, $config, $name);
+        }
+    }
+
+    public static function getInstance($name)
+    {
+        return self::$pools[$name]->pool;
     }
 
     private function buildConfig(AbstractConfig $config)

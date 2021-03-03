@@ -19,8 +19,7 @@ class RedisPool extends AbstractPool
 
     protected $config;
 
-
-    public function initPool($size, AbstractConfig $config, $name = "default")
+    public function __construct($size, AbstractConfig $config, $name = "default")
     {
         $this->pool = new Channel($size);
         $nowTime = time();
@@ -32,6 +31,17 @@ class RedisPool extends AbstractPool
         $this->heartbeat();
 
         self::$pools[$name] = $this->pool;
+    }
+
+    private function __clone()
+    {
+    }
+
+    public static function initPool($size, AbstractConfig $config, $name = "default")
+    {
+        if (!isset(self::$pools[$name])) {
+            self::$pools[$name] = new static($size, $config, $name);
+        }
     }
 
     private function buildConfig(AbstractConfig $config)
@@ -66,5 +76,10 @@ class RedisPool extends AbstractPool
     public static function getConn($name = "default")
     {
         return self::getConnection($name);
+    }
+
+    public static function getInstance($name)
+    {
+        return self::$pools[$name]->pool;
     }
 }
