@@ -14,7 +14,6 @@ use Refink\Database\Pool\RedisPool;
 use Refink\Exception\ApiException;
 use Refink\Exception\MiddlewareException;
 use Refink\Http\Controller;
-use Refink\Http\HttpController;
 use Refink\Http\Route;
 use Refink\Log\Logger;
 use Swoole\Http\Request;
@@ -179,7 +178,7 @@ class Server
             });
 
             $this->swooleServer->on('close', function ($server, $fd) {
-              //  echo "client {$fd} closed\n";
+                //  echo "client {$fd} closed\n";
             });
         }
 
@@ -223,7 +222,6 @@ class Server
                             $result = call_user_func($route['func'], $params, $this->swooleServer);
                         }
                     }
-
                 } catch (MiddlewareException $e) {
                     $result = $e->getMessage();
                     Logger::getInstance()->error($result);
@@ -231,7 +229,7 @@ class Server
                     $result = $e->getMessage();
                     Logger::getInstance()->error($result);
                 } catch (\Throwable $e) { //use \Throwable instead of \Exception, because PHP Fatal error can not be try catch by \Exception
-                    $result = HttpController::getErrorResponse($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                    $result = \Refink\Http\Response::error($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                     Logger::getInstance()->error($result);
                 } finally {
                     $response->end($result);
@@ -258,7 +256,7 @@ class Server
 
         $this->swooleServer->on('task', function ($server, Task $task) {
             //var_dump($arg);
-           $data = ($task->data);
+            $data = ($task->data);
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
