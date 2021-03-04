@@ -57,11 +57,15 @@ class Server
     private $redisPoolCreateFunc;
 
     /**
-     * @var callable where the job receive from
+     * the swoole task worker job handler, if set
+     * task will will loop for pop job to process.
+     * @var callable
      */
-    private $receiveJobHandler;
+    private $jobHandler;
 
     private $jobConcurrentNum = 1024;
+
+    private $jobSequential;
 
     private $appName = 'Refink';
 
@@ -292,24 +296,28 @@ class Server
             }
 
             //task worker callback
-            if ($inTaskWorker && is_callable($this->receiveJobHandler)) {
-                //this channel use to control worker's max coroutine num, also like rate limit
-                //$workerChannel = new Channel($this->jobConcurrentNum);
+            if ($inTaskWorker && is_callable($this->jobHandler)) {
+                $context = [];
                 while (true) {
-                    $job = call_user_func($this->receiveJobHandler, $workerId - $this->swooleServer->setting['worker_num']);
+                    $job = call_user_func($this->jobHandler, $workerId - $this->swooleServer->setting['worker_num']);
                     if (empty($job)) {
-                        // print_r("job empty\n");
                         \co::sleep(0.2);
                         continue;
                     }
-                    //$workerChannel->push($job);
-                    //main coroutine dispatch job to user queue
-                    $channel = JobChannel::getInstance($job->getGroupId());
-                    $channel->push($job);
-
-                    go(function () use ($channel, $job) {
-                        defer(function () use ($channel) {
-                            $channel->pop();
+                    if ($this->jobSequential) {
+                        //main coroutine dispatch job to user queue
+                        JobChannel::getInstance($job->getGroupId())->push($job);
+                    }
+                    //control the peak coroutine number
+                    while (count($context) > $this->jobConcurrentNum) {
+                        \co::sleep(0.02);
+                    }
+                    go(function () use ($job, &$context) {
+                        $cid = \co::getCid();
+                        $context[$cid] = 1;
+                        defer(function () use ($cid, $job, &$context) {
+                            JobChannel::getInstance($job->getGroupId())->pop();
+                            unset($context[$cid]);
                         });
                         \co::sleep(mt_rand(5, 10));
                         $job->handle();
@@ -473,16 +481,16 @@ LOGO;
     /**
      * [optional] set app log handler
      * @param $logPath
-     * @param callable $func
+     * @param callable $handler on framework log finished, then exec the handler
      * @return $this
      */
-    public function setAppLogHandler($logPath, callable $func)
+    public function setAppLogHandler($logPath, callable $handler)
     {
         if (!empty($logPath)) {
             $this->appLogPath = $logPath;
         }
-        if (is_callable($func)) {
-            $this->appLogHandler = $func;
+        if (is_callable($handler)) {
+            $this->appLogHandler = $handler;
         }
         return $this;
     }
@@ -504,12 +512,14 @@ LOGO;
      * the task worker will loop for this handler
      * @param callable $func
      * @param int $jobConcurrentNum how many job can concurrent running
+     * @param bool $jobSequential to control the job processing in Sequential
      * @return $this
      */
-    public function setReceiveJobHandler(callable $func, $jobConcurrentNum = 1024)
+    public function setJobHandler(callable $func, $jobConcurrentNum = 1024, $jobSequential = true)
     {
-        $this->receiveJobHandler = $func;
+        $this->jobHandler = $func;
         $this->jobConcurrentNum = $jobConcurrentNum;
+        $this->jobSequential = $jobSequential;
         return $this;
     }
 

@@ -37,7 +37,7 @@ abstract class AbstractPool
     abstract public static function getConn($name = "default");
 
     /**
-     * check all the connections are keep-alive
+     * check all the connections are alive
      */
     public function heartbeat()
     {
