@@ -125,8 +125,9 @@ class Server
         if (in_array('-d', $this->argv)) {
             $this->settings['daemonize'] = true;
         }
-        $this->settings['pid_file'] = __DIR__ . "/{$this->processName}.server.pid";
-        $this->settings['log_file'] = __DIR__ . "/swoole.log";
+        $pidFileNamePrefix = md5(dirname(__DIR__));
+        $this->settings['pid_file'] = "/var/run/{$pidFileNamePrefix}.{$this->processName}.pid";
+        $this->settings['log_file'] = "{$this->appLogPath}/{$this->processName}.swoole.log";
         $this->listen = $listen;
         $this->port = $port;
         $this->serverType = $serverType;
@@ -279,7 +280,7 @@ class Server
             }
             cli_set_process_title("$this->processName: {$name}");
             if (is_callable($this->redisPoolCreateFunc)) {
-                call_user_func($this->redisPoolCreateFunc, new RedisConfig(REDIS['host'], REDIS['port'], REDIS['passwd']));
+                call_user_func($this->redisPoolCreateFunc, new RedisConfig(REDIS['host'], REDIS['port'], REDIS['passwd'], REDIS['db']));
             }
             if (is_callable($this->mysqlPoolCreateFunc)) {
                 call_user_func($this->mysqlPoolCreateFunc, new MySQLConfig(MYSQL['host'], MYSQL['port'], MYSQL['db_name'], MYSQL['username'], MYSQL['passwd'], MYSQL['options']));
@@ -326,8 +327,8 @@ class Server
     private function checkConfig(&$configFile)
     {
         $env = get_cfg_var("APP_ENV");
-        $cwd = getcwd();
-        $configFile = "{$cwd}/config_{$env}.php";
+        $appRootPath = dirname(__DIR__);
+        $configFile = "{$appRootPath}/config_{$env}.php";
         return is_file($configFile);
     }
 
@@ -407,12 +408,12 @@ LOGO;
 
     /**
      * [optional] the swoole server config settings
-     * @param array $swooleServerConfig
+     * @param array $swooleSettings
      * @return $this
      */
-    public function set(array $swooleServerConfig)
+    public function swooleSettings(array $swooleSettings)
     {
-        foreach ($swooleServerConfig as $k => $v) {
+        foreach ($swooleSettings as $k => $v) {
             $this->settings[$k] = $v;
         }
         return $this;
@@ -514,7 +515,7 @@ LOGO;
         //save master process pid
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
-        $this->showLogo();
+        empty($this->settings['daemonize']) && $this->showLogo();
         //init log handler
         Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
         $this->swooleServer->start();
