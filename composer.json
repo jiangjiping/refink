@@ -17,10 +17,7 @@
     "psr-4": {
       "Refink\\": "src/",
       "App\\": "app/"
-    },
-    "files": [
-      "app/routes.php"
-    ]
+    }
   },
   "autoload-dev": {
     "psr-4": {

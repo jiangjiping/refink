@@ -255,6 +255,7 @@ class Server
             echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? Terminal::getColoredText("not config!", Terminal::RED) : $this->appLogPath) . PHP_EOL;
             echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;
             echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
+
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
         });
@@ -269,8 +270,12 @@ class Server
         });
 
         $this->swooleServer->on('workerStart', function ($server, $workerId) {
+            //set php error handler
+            $this->setErrorHandler();
             //load config
             $this->loadConfig();
+            //init log handler
+            Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
 
             $name = "worker";
             $inTaskWorker = false;
@@ -286,8 +291,6 @@ class Server
                 call_user_func($this->mysqlPoolCreateFunc, new MySQLConfig(MYSQL['host'], MYSQL['port'], MYSQL['db_name'], MYSQL['username'], MYSQL['passwd'], MYSQL['options']));
             }
 
-            //set php error handler
-            $this->setErrorHandler();
             //task worker callback
             if ($inTaskWorker && is_callable($this->receiveJobHandler)) {
                 //this channel use to control worker's max coroutine num, also like rate limit
@@ -319,16 +322,25 @@ class Server
 
     private function loadConfig()
     {
-        if ($this->checkConfig($configFile)) {
-            require $configFile;
+        $env = get_cfg_var("APP_ENV");
+        $appRoot = dirname(__DIR__);
+        $files = [
+            "{$appRoot}/config_{$env}.php",
+            "{$appRoot}/app/routes.php"
+        ];
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                require $file;
+            }
         }
     }
 
-    private function checkConfig(&$configFile)
+
+    private function checkEnv(&$configFile)
     {
         $env = get_cfg_var("APP_ENV");
-        $appRootPath = dirname(__DIR__);
-        $configFile = "{$appRootPath}/config_{$env}.php";
+        $appRoot = dirname(__DIR__);
+        $configFile = "{$appRoot}/config_{$env}.php";
         return is_file($configFile);
     }
 
@@ -503,7 +515,7 @@ LOGO;
 
     public function run()
     {
-        if (!$this->checkConfig($configFile)) {
+        if (!$this->checkEnv($configFile)) {
             exit("config file: " . Terminal::getColoredText("$configFile", Terminal::RED) . " not found, please config it first!" . PHP_EOL);
         }
 
@@ -516,8 +528,6 @@ LOGO;
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
         empty($this->settings['daemonize']) && $this->showLogo();
-        //init log handler
-        Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
         $this->swooleServer->start();
     }
 }
