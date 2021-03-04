@@ -16,9 +16,7 @@ use Refink\Exception\MiddlewareException;
 use Refink\Http\Controller;
 use Refink\Http\Route;
 use Refink\Job\JobChannel;
-use Refink\Job\RedisQueue;
 use Refink\Log\Logger;
-use Swoole\Coroutine\Channel;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Server\Task;
@@ -112,7 +110,7 @@ class Server
     private $serverType;
 
     /**
-     * Server constructor.
+     * Server constructor
      * @param string $listen
      * @param int $port
      * @param int $serverType default support http and websocket
@@ -258,7 +256,6 @@ class Server
             echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
-
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
@@ -269,7 +266,11 @@ class Server
         $this->swooleServer->on('managerStart', function ($server) {
             cli_set_process_title("$this->processName: manager");
         });
+
         $this->swooleServer->on('workerStart', function ($server, $workerId) {
+            //load config
+            $this->loadConfig();
+
             $name = "worker";
             $inTaskWorker = false;
             if ($workerId >= $this->swooleServer->setting['worker_num']) {
@@ -278,10 +279,10 @@ class Server
             }
             cli_set_process_title("$this->processName: {$name}");
             if (is_callable($this->redisPoolCreateFunc)) {
-                call_user_func($this->redisPoolCreateFunc);
+                call_user_func($this->redisPoolCreateFunc, new RedisConfig(REDIS['host'], REDIS['port'], REDIS['passwd']));
             }
             if (is_callable($this->mysqlPoolCreateFunc)) {
-                call_user_func($this->mysqlPoolCreateFunc);
+                call_user_func($this->mysqlPoolCreateFunc, new MySQLConfig(MYSQL['host'], MYSQL['port'], MYSQL['db_name'], MYSQL['username'], MYSQL['passwd'], MYSQL['options']));
             }
 
             //set php error handler
@@ -313,6 +314,21 @@ class Server
             }
         });
 
+    }
+
+    private function loadConfig()
+    {
+        if ($this->checkConfig($configFile)) {
+            require $configFile;
+        }
+    }
+
+    private function checkConfig(&$configFile)
+    {
+        $env = get_cfg_var("APP_ENV");
+        $cwd = getcwd();
+        $configFile = "{$cwd}/config_{$env}.php";
+        return is_file($configFile);
     }
 
     private function setErrorHandler()
@@ -406,12 +422,11 @@ LOGO;
     /**
      * [optional] create mysql connection pool
      * @param int $size the connection number of the pool
-     * @param MySQLConfig $config
      * @return $this
      */
-    public function initMySQLPool(int $size, MySQLConfig $config)
+    public function initMySQLPool(int $size)
     {
-        $this->mysqlPoolCreateFunc = function () use ($size, $config) {
+        $this->mysqlPoolCreateFunc = function (MySQLConfig $config) use ($size) {
             MySQLPool::initPool($size, $config);
         };
         return $this;
@@ -420,12 +435,11 @@ LOGO;
     /**
      * [optional] create redis connection pool
      * @param int $size the connection number of the pool
-     * @param RedisConfig $config
      * @return $this
      */
-    public function initRedisPool(int $size, RedisConfig $config)
+    public function initRedisPool(int $size)
     {
-        $this->redisPoolCreateFunc = function () use ($size, $config) {
+        $this->redisPoolCreateFunc = function (RedisConfig $config) use ($size) {
             RedisPool::initPool($size, $config);
         };
 
@@ -479,7 +493,7 @@ LOGO;
      * @param int $jobConcurrentNum how many job can concurrent running
      * @return $this
      */
-    public function receiveJobHandler(callable $func, $jobConcurrentNum = 1024)
+    public function setReceiveJobHandler(callable $func, $jobConcurrentNum = 1024)
     {
         $this->receiveJobHandler = $func;
         $this->jobConcurrentNum = $jobConcurrentNum;
@@ -488,6 +502,10 @@ LOGO;
 
     public function run()
     {
+        if (!$this->checkConfig($configFile)) {
+            exit("config file: " . Terminal::getColoredText("$configFile", Terminal::RED) . " not found, please config it first!" . PHP_EOL);
+        }
+
         $this->swooleServer->set($this->settings);
         //reload
         pcntl_signal(SIGUSR1, function () {

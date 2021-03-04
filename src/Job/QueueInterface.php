@@ -14,7 +14,7 @@ use Refink\Job;
  * Class FIFOQueueInterface
  * @package Refink\Job
  */
-interface FIFOQueueInterface
+interface QueueInterface
 {
     public function enqueue(Job $job);
 

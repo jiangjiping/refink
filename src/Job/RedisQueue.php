@@ -11,7 +11,7 @@ namespace Refink\Job;
 use Refink\Database\Pool\RedisPool;
 use Refink\Job;
 
-class RedisQueue implements FIFOQueueInterface
+class RedisQueue implements QueueInterface
 {
     public function enqueue(Job $job)
     {
