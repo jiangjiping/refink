@@ -304,10 +304,10 @@ class Server
                         \co::sleep(0.2);
                         continue;
                     }
-                    if ($this->jobSequential) {
-                        //main coroutine dispatch job to user queue
-                        JobChannel::getInstance($job->getGroupId())->push($job);
-                    }
+
+                    //main coroutine dispatch job to user queue, this step like lock
+                    $this->jobSequential && JobChannel::getInstance($job->getGroupId())->push($job);
+
                     //control the peak coroutine number
                     while (count($context) > $this->jobConcurrentNum) {
                         \co::sleep(0.02);
@@ -316,7 +316,8 @@ class Server
                         $cid = \co::getCid();
                         $context[$cid] = 1;
                         defer(function () use ($cid, $job, &$context) {
-                            JobChannel::getInstance($job->getGroupId())->pop();
+                            //this step like unlock
+                            $this->jobSequential && JobChannel::getInstance($job->getGroupId())->pop();
                             unset($context[$cid]);
                         });
                         \co::sleep(mt_rand(5, 10));
