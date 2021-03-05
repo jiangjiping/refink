@@ -116,6 +116,12 @@ class Server
     private $serverType;
 
     /**
+     * the application root path, not contains "/app"
+     * @var string
+     */
+    private $appRoot;
+
+    /**
      * Server constructor
      * @param string $listen
      * @param int $port
@@ -131,7 +137,8 @@ class Server
         if (in_array('-d', $this->argv)) {
             $this->settings['daemonize'] = true;
         }
-        $pidFileNamePrefix = md5(dirname(__DIR__));
+        $this->appRoot = dirname(__DIR__);
+        $pidFileNamePrefix = md5($this->appRoot);
         $this->settings['pid_file'] = "/var/run/{$pidFileNamePrefix}.{$this->appName}.pid";
         $this->settings['log_file'] = "{$this->appLogPath}/{$this->appName}.swoole.log";
         $this->listen = $listen;
@@ -261,7 +268,10 @@ class Server
             echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? Terminal::getColoredText("not config!", Terminal::RED) : $this->appLogPath) . PHP_EOL;
             echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;
             echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
-
+            $routes = "{$this->appRoot}/app/routes.php";
+            if (!is_file($routes)) {
+                echo str_pad("warning", 18) . '|  ' . Terminal::getColoredText($routes, Terminal::RED) . " not exists!" . PHP_EOL;
+            }
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
         });
@@ -334,10 +344,9 @@ class Server
     private function loadConfig()
     {
         $env = get_cfg_var("APP_ENV");
-        $appRoot = dirname(__DIR__);
         $files = [
-            "{$appRoot}/config_{$env}.php",
-            "{$appRoot}/app/routes.php"
+            "{$this->appRoot}/config_{$env}.php",
+            "{$this->appRoot}/app/routes.php"
         ];
         foreach ($files as $file) {
             if (is_file($file)) {
@@ -350,8 +359,7 @@ class Server
     private function checkEnv(&$configFile)
     {
         $env = get_cfg_var("APP_ENV");
-        $appRoot = dirname(__DIR__);
-        $configFile = "{$appRoot}/config_{$env}.php";
+        $configFile = "{$this->appRoot}/config_{$env}.php";
         return is_file($configFile);
     }
 
