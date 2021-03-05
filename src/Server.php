@@ -16,6 +16,7 @@ use Refink\Exception\MiddlewareException;
 use Refink\Http\Controller;
 use Refink\Http\Route;
 use Refink\Job\JobChannel;
+use Refink\Job\QueueInterface;
 use Refink\Log\Logger;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
@@ -57,11 +58,12 @@ class Server
     private $redisPoolCreateFunc;
 
     /**
-     * the swoole task worker job handler, if set
-     * task will will loop for pop job to process.
-     * @var callable
+     * if set then swoole task worker will loop for pop job
+     * from the queue driver to process.
+     *
+     * @var QueueInterface
      */
-    private $jobHandler;
+    private $queueDriver;
 
     private $jobConcurrentNum = 1024;
 
@@ -130,8 +132,8 @@ class Server
             $this->settings['daemonize'] = true;
         }
         $pidFileNamePrefix = md5(dirname(__DIR__));
-        $this->settings['pid_file'] = "/var/run/{$pidFileNamePrefix}.{$this->processName}.pid";
-        $this->settings['log_file'] = "{$this->appLogPath}/{$this->processName}.swoole.log";
+        $this->settings['pid_file'] = "/var/run/{$pidFileNamePrefix}.{$this->appName}.pid";
+        $this->settings['log_file'] = "{$this->appLogPath}/{$this->appName}.swoole.log";
         $this->listen = $listen;
         $this->port = $port;
         $this->serverType = $serverType;
@@ -248,7 +250,7 @@ class Server
         }
 
         $this->swooleServer->on('start', function ($server) {
-            cli_set_process_title("$this->processName: master");
+            cli_set_process_title("$this->appName: master");
             Terminal::echoTableLine();
             if ($this->serverType & self::SERVER_TYPE_HTTP) {
                 echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
@@ -270,7 +272,7 @@ class Server
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
-            cli_set_process_title("$this->processName: manager");
+            cli_set_process_title("$this->appName: manager");
         });
 
         $this->swooleServer->on('workerStart', function ($server, $workerId) {
@@ -287,7 +289,7 @@ class Server
                 $name = "task worker";
                 $inTaskWorker = true;
             }
-            cli_set_process_title("$this->processName: {$name}");
+            cli_set_process_title("$this->appName: {$name}");
             if (is_callable($this->redisPoolCreateFunc)) {
                 call_user_func($this->redisPoolCreateFunc, new RedisConfig(REDIS['host'], REDIS['port'], REDIS['passwd'], REDIS['db']));
             }
@@ -296,10 +298,10 @@ class Server
             }
 
             //task worker callback
-            if ($inTaskWorker && is_callable($this->jobHandler)) {
+            if ($inTaskWorker && !is_null($this->queueDriver)) {
                 $context = [];
                 while (true) {
-                    $job = call_user_func($this->jobHandler, $workerId - $this->swooleServer->setting['worker_num']);
+                    $job = $this->queueDriver->dequeue($workerId - $this->swooleServer->setting['worker_num']);
                     if (empty($job)) {
                         \co::sleep(0.2);
                         continue;
@@ -320,7 +322,7 @@ class Server
                             $this->jobSequential && JobChannel::getInstance($job->getGroupId())->pop();
                             unset($context[$cid]);
                         });
-                        \co::sleep(mt_rand(5, 10));
+                        \co::sleep(mt_rand(1, 5));
                         $job->handle();
                     });
                 }
@@ -417,24 +419,15 @@ LOGO;
     }
 
     /**
-     * set the server's process name
-     * @param $name
-     * @return $this
-     */
-    public function setProcessName($name)
-    {
-        $this->processName = $name;
-        return $this;
-    }
-
-    /**
      * [optional] the swoole server config settings
-     * @param array $swooleSettings
+     * if you want change config, you need to restart server
+     * reload will not take effect
+     * @param array $settings
      * @return $this
      */
-    public function swooleSettings(array $swooleSettings)
+    public function setSwooleConf(array $settings)
     {
-        foreach ($swooleSettings as $k => $v) {
+        foreach ($settings as $k => $v) {
             $this->settings[$k] = $v;
         }
         return $this;
@@ -511,14 +504,14 @@ LOGO;
     /**
      * [optional] set the swoole task worker receive job callback func, if set this
      * the task worker will loop for this handler
-     * @param callable $func
+     * @param QueueInterface $driver if you want to
      * @param int $jobConcurrentNum how many job can concurrent running
      * @param bool $jobSequential to control the job processing in Sequential
      * @return $this
      */
-    public function setJobHandler(callable $func, $jobConcurrentNum = 1024, $jobSequential = true)
+    public function setQueueDriver(QueueInterface $driver, $jobConcurrentNum = 1024, $jobSequential = true)
     {
-        $this->jobHandler = $func;
+        $this->queueDriver = $driver;
         $this->jobConcurrentNum = $jobConcurrentNum;
         $this->jobSequential = $jobSequential;
         return $this;
