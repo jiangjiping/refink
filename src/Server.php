@@ -269,7 +269,7 @@ class Server
             echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;
             echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
             $routes = "{$this->appRoot}/app/routes.php";
-            if (!is_file($routes)) {
+            if (!is_file($routes) && $this->serverType & self::SERVER_TYPE_HTTP) {
                 echo str_pad("warning", 18) . '|  ' . Terminal::getColoredText($routes, Terminal::RED) . " not exists!" . PHP_EOL;
             }
             Terminal::echoTableLine();
