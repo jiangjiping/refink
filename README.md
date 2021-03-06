@@ -135,7 +135,6 @@ Percentage of the requests served within a certain time (ms)
     
 ### 使用方法
     
- -  清先安装composer
  -  cd到指定目录，然后在shell终端执行命令:
 
 ```
