@@ -18,6 +18,7 @@ use Refink\Http\Route;
 use Refink\Job\JobChannel;
 use Refink\Job\QueueInterface;
 use Refink\Log\Logger;
+use Refink\WebSocket\Dispatcher;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Server\Task;
@@ -38,23 +39,32 @@ class Server
      */
     const SERVER_TYPE_WEBSOCKET = 2;
 
-    const WEBSOCKET_ON_MESSAGE = 'message';
-    const WEBSOCKET_ON_OPEN = 'open';
-    const WEBSOCKET_ON_CLOSE = 'close';
-
     /**
-     * @var string http server default content type
+     * http server default content type
+     * @var string
      */
     const HTTP_CONTENT_TYPE_JSON = 'application/json';
 
+    /**
+     * http content type "text/plain"
+     * @var string
+     */
     const HTTP_CONTENT_TYPE_TEXT = 'text/plain';
 
     /**
+     * the http server response content-type
      * @var string
      */
     private $httpContentType = self::HTTP_CONTENT_TYPE_JSON;
 
+    /**
+     * @var callable
+     */
     private $mysqlPoolCreateFunc;
+
+    /**
+     * @var callable
+     */
     private $redisPoolCreateFunc;
 
     /**
@@ -65,12 +75,28 @@ class Server
      */
     private $queueDriver;
 
+    /**
+     * control how many jobs can concurrent running
+     * @var int
+     */
     private $jobConcurrentNum = 1024;
 
+    /**
+     * control if the job is sequential running
+     * @var boolean
+     */
     private $jobSequential;
 
+    /**
+     * Application name. the terminal process title prefix will use it.
+     * @var string
+     */
     private $appName = 'Refink';
 
+    /**
+     * the application's all log files save path
+     * @var string
+     */
     private $appLogPath = '/var/log';
 
     /**
@@ -120,6 +146,19 @@ class Server
      * @var string
      */
     private $appRoot;
+
+    /**
+     * when websocket onMessage, use this function to decode it
+     * @var callable
+     */
+    private $webSocketMsgDecoder;
+
+    /**
+     * eg: if you use json msg, {"event": "talk","to_uid": 1222, "content": "hi!"},
+     * now "event" is the route key
+     * @var string
+     */
+    private $webSocketMsgRouteKey = "event";
 
     /**
      * Server constructor
@@ -193,8 +232,30 @@ class Server
             });
 
             $this->swooleServer->on('message', function (\Swoole\WebSocket\Server $server, $frame) {
-                echo "receive from {$frame->fd}:{$frame->data},opcode:{$frame->opcode},fin:{$frame->finish}\n";
-                $server->push($frame->fd, "this is server");
+                $this->setErrorHandler();
+                try {
+                    $routeKey = empty($this->webSocketMsgRouteKey) ? 'event' : $this->webSocketMsgRouteKey;
+                    $data = is_callable($this->webSocketMsgDecoder) ? call_user_func($this->webSocketMsgDecoder, $frame->data) : json_decode($frame->data, true);
+                    if (!isset($data[$routeKey])) {
+                        return $server->push($frame->fd, \Refink\WebSocket\Response::error("route key not found!"));
+                    }
+
+                    $func = Dispatcher::getRoutes($data[$routeKey]);
+                    if (empty($func)) {
+                        return $server->push($frame->fd, \Refink\WebSocket\Response::error("dispatcher not found!"));
+                    }
+
+                    if (is_array($func) && class_exists($func[0])) {
+                        $func = [new $func[0], $func[1]];
+                    }
+                    $response = call_user_func($func, $data);
+                    $server->push($frame->fd, $response);
+                } catch (\Throwable $e) {
+                    $result = \Refink\WebSocket\Response::error($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                    Logger::getInstance()->error($result);
+                    return $server->push($frame->fd, $result);
+                }
+
             });
 
             $this->swooleServer->on('close', function ($server, $fd) {
@@ -497,6 +558,10 @@ LOGO;
         return $this;
     }
 
+    /**
+     * [optional] set your application name
+     * @param $name
+     */
     public function setAppName($name)
     {
         if (!empty($name)) {
@@ -504,9 +569,16 @@ LOGO;
         }
     }
 
-    public function setWebSocketEvent($event, callable $func)
+    /**
+     * [optional] set the websocket message decoder, default
+     * use "json_decode" function
+     * @param callable $func
+     * @param string $msgRouteKey dispatch msg to websocket handler by the msgRouteKey
+     */
+    public function setWebSocketMsgDecoder($func, $msgRouteKey)
     {
-        $this->swooleServer->on($event, $func);
+        $this->webSocketMsgDecoder = $func;
+        $this->webSocketMsgRouteKey = $msgRouteKey;
     }
 
     /**
@@ -525,6 +597,27 @@ LOGO;
         return $this;
     }
 
+    /**
+     * [optional] set the http response body data format
+     * @param callable $successPacker
+     * @param callable $errorPacker
+     */
+    public function setHttpResponsePacker($successPacker, $errorPacker)
+    {
+        \Refink\Http\Response::setPacker($successPacker, $errorPacker);
+    }
+
+    /**
+     * [optional] set the websocket response msg format
+     * @param callable $successPacker the function to pack success response
+     * @param callable $errorPacker the function to pack error response
+     */
+    public function setWebSocketPacker($successPacker, $errorPacker)
+    {
+        \Refink\WebSocket\Response::setPacker($successPacker, $errorPacker);
+    }
+
+
     public function run()
     {
         if (!$this->checkEnv($configFile)) {
@@ -540,6 +633,7 @@ LOGO;
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
         empty($this->settings['daemonize']) && $this->showLogo();
+
         $this->swooleServer->start();
     }
 }

@@ -19,7 +19,7 @@ class Route
     /**
      * add a http get method static route
      * @param string $uri eg: /user/login
-     * @param  $func
+     * @param callable $func
      * @param array $middleware
      */
     public static function get(string $uri, $func, array $middleware = [])
@@ -27,6 +27,11 @@ class Route
         self::addRoute(self::HTTP_GET, $uri, $func, $middleware);
     }
 
+    /**
+     * @param string $uri
+     * @param callable $func
+     * @param array $middleware
+     */
     public static function post(string $uri, $func, array $middleware = [])
     {
         self::addRoute(self::HTTP_POST, $uri, $func, $middleware);

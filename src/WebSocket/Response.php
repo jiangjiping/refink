@@ -2,10 +2,10 @@
 /**
  * Created by PhpStorm.
  * User: randy
- * Date: 2021/3/3
+ * Date: 2021/3/6
  */
 
-namespace Refink\Http;
+namespace Refink\WebSocket;
 
 
 class Response
