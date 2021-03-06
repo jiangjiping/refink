@@ -139,31 +139,16 @@ Percentage of the requests served within a certain time (ms)
  -  cd到指定目录，然后在shell终端执行命令:
 
 ```
-composer require refink/refink
+composer create-project refink/refink
    
 ```
 
-- 创建启动文件app.php
-
-```
-use Refink\Server;
-
-require './vendor/autoload.php';
-
-use Refink\Database\Config\MySQLConfig;
-use Refink\Database\Config\RedisConfig;
-
-$app = new Server("192.168.66.210", 9501, Server::SERVER_TYPE_HTTP);
-$app
-    ->initMySQLPool(40, new MySQLConfig("127.0.0.1", 3306, "demo", "username", "password", []))
-    ->initRedisPool(64, new RedisConfig("127.0.0.1", 6379, "password"))
-    ->run();
 ```
  
  - 命令行启动server
  
 ```
- php server.php start
+ php server_example.php start
 
 ```
 
@@ -171,6 +156,6 @@ $app
  ### 如何同时支持http和websocket?
  
 ```
- $app = new Server("192.168.66.210", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
+ $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
 ```
  
