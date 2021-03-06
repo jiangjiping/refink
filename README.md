@@ -74,12 +74,12 @@ class UserController extends HttpController
 ```
    
 ```
-[root@pc-vagrant ~]# ab -n 20000 -c 2000 -k http://192.168.66.210:9501/v2/user/login
+[root@pc-vagrant ~]# ab -n 20000 -c 2000 -k http://127.0.0.1:9501/api/user/login
 This is ApacheBench, Version 2.3 <$Revision: 1430300 $>
 Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
 Licensed to The Apache Software Foundation, http://www.apache.org/
 
-Benchmarking 192.168.66.210 (be patient)
+Benchmarking 127.0.0.1 (be patient)
 Completed 2000 requests
 Completed 4000 requests
 Completed 6000 requests
@@ -94,10 +94,10 @@ Finished 20000 requests
 
 
 Server Software:        Refink
-Server Hostname:        192.168.66.210
+Server Hostname:        127.0.0.1
 Server Port:            9501
 
-Document Path:          /v2/user/login
+Document Path:          /api/user/login
 Document Length:        100 bytes
 
 Concurrency Level:      2000
