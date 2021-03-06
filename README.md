@@ -159,3 +159,8 @@ composer create-project refink/refink
  $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
 ```
  
+ ### 路由配置
+
+```
+app/routes.php中有示例代码
+```
