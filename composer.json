@@ -1,6 +1,6 @@
 {
   "name": "refink/refink",
-  "description": "refink is a api server base on swoole, support http and websocket",
+  "description": "a php framework for api server or websocket server, base on swoole",
   "type": "project",
   "license": "Apache-2.0",
   "keywords": [
