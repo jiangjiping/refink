@@ -161,6 +161,16 @@ class Server
     private $webSocketMsgRouteKey = "event";
 
     /**
+     * @var callable
+     */
+    private $webSocketOnOpenHandler;
+
+    /**
+     * @var callable
+     */
+    private $webSocketOnCloseHandler;
+
+    /**
      * Server constructor
      * @param string $listen
      * @param int $port
@@ -227,8 +237,10 @@ class Server
             //support http or websocket, swoole web socket server also support http protocol
             $this->swooleServer = new \Swoole\WebSocket\Server($this->listen, $this->port);
             //set the websocket protocol event callbacks
-            $this->swooleServer->on('open', function (\Swoole\WebSocket\Server $server, $request) {
-                echo "server: handshake success with fd{$request->fd}\n";
+            $this->swooleServer->on('open', function (\Swoole\WebSocket\Server $server, Request $request) {
+                if (is_callable($this->webSocketOnOpenHandler)) {
+                    call_user_func($this->webSocketOnOpenHandler, $server, $request);
+                }
             });
 
             $this->swooleServer->on('message', function (\Swoole\WebSocket\Server $server, $frame) {
@@ -259,7 +271,9 @@ class Server
             });
 
             $this->swooleServer->on('close', function ($server, $fd) {
-                //  echo "client {$fd} closed\n";
+                if (is_callable($this->webSocketOnCloseHandler)) {
+                    call_user_func($this->webSocketOnCloseHandler, $server, $fd);
+                }
             });
         }
 
@@ -338,8 +352,6 @@ class Server
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
-            //var_dump($arg);
-            $data = ($task->data);
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
@@ -617,6 +629,23 @@ LOGO;
         \Refink\WebSocket\Response::setPacker($successPacker, $errorPacker);
     }
 
+    /**
+     * [optional] set the websocket "on open" event callback
+     * @param callable $func
+     */
+    public function setWebSocketOnOpen($func)
+    {
+        $this->webSocketOnOpenHandler = $func;
+    }
+
+    /**
+     * [optional] set the websocket "on close" event callback
+     * @param callable $func
+     */
+    public function setWebSocketOnClose($func)
+    {
+        $this->webSocketOnCloseHandler = $func;
+    }
 
     public function run()
     {

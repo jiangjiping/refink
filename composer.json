@@ -1,8 +1,13 @@
 {
   "name": "refink/refink",
   "description": "refink is a api server base on swoole, support http and websocket",
-  "type": "library",
-  "license": "MIT",
+  "type": "project",
+  "license": "Apache-2.0",
+  "keywords": [
+    "swoole",
+    "framework",
+    "refink"
+  ],
   "authors": [
     {
       "name": "jiangjiping",
@@ -11,7 +16,8 @@
   ],
   "minimum-stability": "dev",
   "require": {
-    "php": ">=7.1.0"
+    "php": ">=7.1.0",
+    "ext-swoole": ">=4.4.4"
   },
   "autoload": {
     "psr-4": {
