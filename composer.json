@@ -30,5 +30,10 @@
       "Refink\\": "src/",
       "App\\": "app/"
     }
+  },
+  "scripts": {
+    "post-root-package-install": [
+      "@php -r \"file_exists('config_example.php') || copy('config_example.php', 'config_dev.php');\""
+    ]
   }
 }
