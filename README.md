@@ -1,11 +1,20 @@
-### Refink是基于swoole的一款开箱即用的后端应用框架
+
+### Refink适用场景
+
+- app后端
+- 游戏后端
+
+### Refink特性
 
  - 非常容易上手，无任何框架层的重度封装
  - 支持基于http的restful api接口，自带类似laravel的静态路由、中间件
+ - 支持异步任务：api接口将耗时任务放队列，后台进程异步消费，代码书写方式类似laravel的job，ide代码智能提示支持良好
+   同时支持配置异步任务是并行还是串行(按顺序)执行
  - 支持基于websocket MVC结构，直接写业务代码即可，不用自己在处理websocket事件
  - 支持数据库连接池, 当前进支持redis和mysql
  - 目前只能在协程环境中运行
  - 高性能：和原生swoole非常接近，因为框架代码极其精简，带来的性能损耗忽略不计
+ 
  
  
  #### ab压测 
@@ -132,7 +141,7 @@ $app
  - 命令行启动server
  
 ```
- php app.php start
+ php server.php start
 
 ```
 
