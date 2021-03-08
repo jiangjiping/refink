@@ -28,14 +28,20 @@ composer create-project refink/refink
  - 命令行启动server(终端挂起模式)
  
 ```
- refink/server start
+ refink/server_example start
 
 ```
  - 命令行启动server(daemonize守护进程模式)
  
 ```
- refink/server start -d
+ refink/server_example start -d
 
+```
+
+- 启动文件"server_example" 可以自己重命名，但是需要确保有执行权限：
+
+```
+ chmod a+x server_example
 ```
 
 
