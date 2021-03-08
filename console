@@ -1,0 +1,33 @@
+#! /usr/bin/env php
+<?php
+/**
+ * Created by PhpStorm.
+ * User: randy
+ * Date: 2021/3/8
+ */
+ini_set("display_errors", 1);
+error_reporting(2047);
+
+use Refink\Command;
+
+require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/app/command.php';
+
+if (empty($argv[1])) {
+    $help = Command::help();
+    exit("usage: $argv[0] [command]\n{$help}");
+}
+
+$command = $argv[1];
+try {
+    $func = Command::getCommandCallback($argv[1]);
+    $args = array_splice($argv, 1);
+    call_user_func($func, $args);
+
+} catch (\Refink\Exception\CommandException $e) {
+    echo \Refink\Terminal::getColoredText($e->getMessage(), \Refink\Terminal::RED);
+    echo Command::help();
+
+} catch (Throwable $e) {
+    echo \Refink\Terminal::getColoredText($e->getMessage(), \Refink\Terminal::RED) . PHP_EOL;
+}
