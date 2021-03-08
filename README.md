@@ -182,7 +182,7 @@ press CTRL + C to stop.
 则可访问: 
 
 ```
-http://192.168.1.122:9501/api/demo
+http://192.168.1.122:9501/demo
 
 ```
  
@@ -200,3 +200,9 @@ app/routes.php中有示例代码
  $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
 
 ```
+
+### 关于env环境配置
+
+- dev: php.ini添加配置APP_ENV=dev，则框架会自动加载项目根目录的 config_dev.php, 默认未配置也是加载它
+- test: php.ini添加配置APP_ENV=test, 则框架会自动加载项目根目录 config_test.php
+- prod: php.ini添加配置APP_ENV=prod, 则框架会自动加载 config_prod.php
