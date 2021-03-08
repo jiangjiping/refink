@@ -185,6 +185,8 @@ press CTRL + C to stop.
 http://192.168.1.122:9501/demo
 
 ```
+
+- 访问其他路由时，确保mysql或redis的连接信息已正确配置
  
 ### 路由配置
 
