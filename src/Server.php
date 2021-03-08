@@ -419,6 +419,7 @@ class Server
     private function loadConfig()
     {
         $env = get_cfg_var("APP_ENV");
+        empty($env) && $env = 'dev';
         $files = [
             "{$this->appRoot}/config_{$env}.php",
             "{$this->appRoot}/app/routes.php"
@@ -434,6 +435,7 @@ class Server
     private function checkEnv(&$configFile)
     {
         $env = get_cfg_var("APP_ENV");
+        empty($env) && $env = 'dev';
         $configFile = "{$this->appRoot}/config_{$env}.php";
         return is_file($configFile);
     }

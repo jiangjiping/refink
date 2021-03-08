@@ -14,7 +14,83 @@
  - 支持数据库连接池, 当前进支持redis和mysql
  - 目前只能在协程环境中运行
  - 高性能：和原生swoole非常接近，因为框架代码极其精简，带来的性能损耗忽略不计
+    
+    
+### 使用方法
+    
+ -  使用composer安装项目:
+
+```
+composer create-project refink/refink
+   
+```
  
+ - 命令行启动server(终端挂起模式)
+ 
+```
+ refink/server start
+
+```
+ - 命令行启动server(daemonize守护进程模式)
+ 
+```
+ refink/server start -d
+
+```
+
+
+### 如何访问后端地址？
+
+- 当server成功启动时，会如下输出
+```
+ ____       __ _       _    
+|  _ \ ___ / _(_)_ __ | | __
+| |_) / _ \ |_| | '_ \| |/ /
+|  _ <  __/  _| | | | |   < 
+|_| \_\___|_| |_|_| |_|_|\_\
+                            
+**************************************************
+http server       |  http://0.0.0.0:9501
+websocket server  |  ws://0.0.0.0:9501
+app log path      |  /var/log
+swoole version    |  4.4.16
+php version       |  7.2.24
+**************************************************
+press CTRL + C to stop.
+
+```
+假设您服务器对外可以访问的ip为: 192.168.1.122
+则可访问: 
+
+```
+http://192.168.1.122:9501/demo
+
+```
+
+- 访问其他路由时，确保mysql或redis的连接信息已正确配置
+ 
+### 路由配置
+
+```
+app/routes.php中有示例代码
+
+```
+
+ 
+### 如何同时支持http和websocket?
+ 
+```
+ $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
+
+```
+
+### 关于env环境配置
+
+- dev: php.ini添加配置APP_ENV=dev，则框架会自动加载项目根目录的 config_dev.php, 默认未配置也是加载它
+- test: php.ini添加配置APP_ENV=test, 则框架会自动加载项目根目录 config_test.php
+- prod: php.ini添加配置APP_ENV=prod, 则框架会自动加载 config_prod.php
+
+
 ### Refink作者的思考
 
 -  swoole生态目前常用的框架就那几个，但是都是java系风格编码方式，其实对phper来说未必友好，而且封装都太重，
@@ -42,7 +118,7 @@ swoole的性能已经非常之高效了,作者曾经压测对比过:
 refink翻译出来是：重新思考， 这也是作者开发该框架的原因，重新思考了上述问题之后，开发了refink框架，开箱即用，简单容易上手，关键点：
 保持了swoole的高效！！！
  
- #### ab压测 
+#### ab压测 
   
   - win7下virtual box虚拟机: i3 4核cpu 4G内
   - 压测本机redis benchmark: 10w
@@ -133,78 +209,5 @@ Percentage of the requests served within a certain time (ms)
   98%    423
   99%    508
  100%   1504 (longest request)
-```
-    
-    
-### 使用方法
-    
- -  使用composer安装项目:
 
 ```
-composer create-project refink/refink
-   
-```
- 
- - 命令行启动server(终端挂起模式)
- 
-```
- refink/server start
-
-```
- - 命令行启动server(daemonize守护进程模式)
- 
-```
- refink/server start -d
-
-```
-
-### 如何访问后端地址？
-
-- 当server成功启动时，会如下输出
-```
- ____       __ _       _    
-|  _ \ ___ / _(_)_ __ | | __
-| |_) / _ \ |_| | '_ \| |/ /
-|  _ <  __/  _| | | | |   < 
-|_| \_\___|_| |_|_| |_|_|\_\
-                            
-**************************************************
-http server       |  http://0.0.0.0:9501
-websocket server  |  ws://0.0.0.0:9501
-app log path      |  /var/log
-swoole version    |  4.4.16
-php version       |  7.2.24
-**************************************************
-press CTRL + C to stop.
-
-```
-假设您服务器对外可以访问的ip为: 192.168.1.122
-则可访问: 
-
-```
-http://192.168.1.122:9501/demo
-
-```
-
-- 访问其他路由时，确保mysql或redis的连接信息已正确配置
- 
-### 路由配置
-
-```
-app/routes.php中有示例代码
-
-```
-
- 
-### 如何同时支持http和websocket?
- 
-```
- $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
-
-```
-
-### 关于env环境配置
-
-- dev: php.ini添加配置APP_ENV=dev，则框架会自动加载项目根目录的 config_dev.php, 默认未配置也是加载它
-- test: php.ini添加配置APP_ENV=test, 则框架会自动加载项目根目录 config_test.php
-- prod: php.ini添加配置APP_ENV=prod, 则框架会自动加载 config_prod.php
