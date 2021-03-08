@@ -17,12 +17,15 @@
  
 ### Refink作者的思考
 
-- swoole生态目前常用的框架就那几个，但是都是java系风格编码方式，其实对phper来说未必友好，而且封装都太重，有一个虽然简单，但是很多地方
-不给你自由扩展的机会，比如日志错误处理居然要自己去处理，框架没自动处理好，而需要功能扩展的地方却到处是 !instance of 判断限制扩展。
-php7和swoole的出现都是为了给php性能带来提升，作为框架的开发者，不能反其道而行，成为拖慢性能的罪魁祸首。作者曾经压测对比过
+-  swoole生态目前常用的框架就那几个，但是都是java系风格编码方式，其实对phper来说未必友好，而且封装都太重，
+有一个虽然简单，但是很多地方不给你自由扩展的机会，比如日志错误处理居然要自己去处理，框架没自动处理好，而需要
+功能扩展的地方却到处是 !instance of 判断限制扩展。
+   php7和swoole的出现都是为了给php性能带来提升，作为框架的开发者，不能反其道而行，成为拖慢性能的罪魁祸首。
+swoole的性能已经非常之高效了,作者曾经压测对比过:
 基于c++的drogon框架、java8 + netty4、swoole4+php7 、golang 1.14自带http server、基于c语言libevent多线程实现的http server
-在同样的环境下，QPS性能排序如下 多线程ibevent_http_server > drogon > swoole > golang > java
-其中java和golang接近，swoole和drogon接近，所以swoole的性能已经非常之高效了。既然swoole那么高效，所以框架作者应该尽可能的减少框架层消耗
+在同样的环境下，QPS性能排序如下:
+- 多线程ibevent_http_server > drogon > swoole > golang > java
+其中java和golang接近，swoole和drogon接近。既然swoole那么高效，所以框架作者应该尽可能的减少框架层消耗
 下面提出几个框架作者不该做的事情：
 
 ```
@@ -141,25 +144,30 @@ Percentage of the requests served within a certain time (ms)
 composer create-project refink/refink
    
 ```
-
-```
  
- - 命令行启动server
+ - 命令行启动server(终端挂起模式)
  
 ```
- php server_example.php start
+ ./server start
 
 ```
+ - 命令行启动server(daemonize守护进程模式)
+ 
+```
+ ./server start -d
 
+```
  
  ### 如何同时支持http和websocket?
  
 ```
  $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
+
 ```
  
  ### 路由配置
 
 ```
 app/routes.php中有示例代码
+
 ```

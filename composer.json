@@ -1,6 +1,6 @@
 {
   "name": "refink/refink",
-  "description": "a php framework for api server or websocket server, base on swoole",
+  "description": "a php backend framework for game or app",
   "type": "project",
   "license": "Apache-2.0",
   "keywords": [
@@ -33,7 +33,8 @@
   },
   "scripts": {
     "post-root-package-install": [
-      "@php -r \"file_exists('config_example.php') || copy('config_example.php', 'config_dev.php');\""
+      "@php -r \"file_exists('config_example.php') || copy('config_example.php', 'config_dev.php');\"",
+      "@php -r \"file_exists('server_example') || copy('server_example', 'server');\""
     ]
   }
 }
