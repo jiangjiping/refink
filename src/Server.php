@@ -429,6 +429,10 @@ class Server
                 require $file;
             }
         }
+
+        Config::getInstance([
+            'refink' => $this->swooleServer->setting
+        ]);
     }
 
 

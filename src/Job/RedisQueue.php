@@ -8,6 +8,7 @@
 namespace Refink\Job;
 
 
+use Refink\Config;
 use Refink\Database\Pool\RedisPool;
 use Refink\Job;
 
@@ -15,7 +16,7 @@ class RedisQueue implements QueueInterface
 {
     public function enqueue(Job $job)
     {
-        return RedisPool::getConn()->lPush($this->getQueueKey($job->getGroupId() % 4), serialize($job));
+        return RedisPool::getConn()->lPush($this->getQueueKey($job->getGroupId() % Config::getInstance()->get('refink.task_worker_num')), serialize($job));
     }
 
     private function getQueueKey($groupId)

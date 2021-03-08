@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 
 
 use App\Jobs\SyncUserInfo;
+use Refink\Config;
 use Refink\Database\Pool\MySQLPool;
 use Refink\Database\Pool\RedisPool;
 use Refink\Http\Controller;
@@ -29,12 +30,15 @@ class UserController extends Controller
         // $server->task(['a' => 1, 'name' => 'xx33333']);
 
         //$data = RedisPool::getConn()->get("test_key1");
-        for ($i = 0; $i < 10; $i++) {
-            $job = new SyncUserInfo(666, "name_{$i}", "ok_{$i}.png", $i + 100);
-            $this->dispatch($job);
-        }
-        $data['app_key'] = APP_KEY;
-        $data['new_haha'] = "update";
+//        for ($i = 0; $i < 10; $i++) {
+//            $job = new SyncUserInfo(666, "name_{$i}", "ok_{$i}.png", $i + 100);
+//            $this->dispatch($job);
+//        }
+//        $data['app_key'] = APP_KEY;
+//        $data['new_haha'] = "update";
+
+        $data = Config::getInstance()->get("refink");
+        var_dump(Config::getInstance()->get('refink.task_worker_num'));
 
         return $this->success($data, "HAHA");
     }
