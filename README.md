@@ -138,7 +138,7 @@ Percentage of the requests served within a certain time (ms)
     
 ### 使用方法
     
- -  cd到指定目录，然后在shell终端执行命令:
+ -  使用composer安装项目:
 
 ```
 composer create-project refink/refink
@@ -148,26 +148,55 @@ composer create-project refink/refink
  - 命令行启动server(终端挂起模式)
  
 ```
- ./server start
+ refink/server start
 
 ```
  - 命令行启动server(daemonize守护进程模式)
  
 ```
- ./server start -d
+ refink/server start -d
+
+```
+
+### 如何访问后端地址？
+
+- 当server成功启动时，会如下输出
+```
+ ____       __ _       _    
+|  _ \ ___ / _(_)_ __ | | __
+| |_) / _ \ |_| | '_ \| |/ /
+|  _ <  __/  _| | | | |   < 
+|_| \_\___|_| |_|_| |_|_|\_\
+                            
+**************************************************
+http server       |  http://0.0.0.0:9501
+websocket server  |  ws://0.0.0.0:9501
+app log path      |  /var/log
+swoole version    |  4.4.16
+php version       |  7.2.24
+**************************************************
+press CTRL + C to stop.
+
+```
+假设您服务器对外可以访问的ip为: 192.168.1.122
+则可访问: 
+
+```
+http://192.168.1.122:9501/api/demo
 
 ```
  
- ### 如何同时支持http和websocket?
- 
-```
- $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
-
-```
- 
- ### 路由配置
+### 路由配置
 
 ```
 app/routes.php中有示例代码
+
+```
+
+ 
+### 如何同时支持http和websocket?
+ 
+```
+ $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET );
 
 ```

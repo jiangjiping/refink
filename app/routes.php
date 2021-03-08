@@ -10,7 +10,7 @@ use Refink\WebSocket\Dispatcher;
 
 Route::setMiddlewareAlias('auth', [\App\Http\Middleware\Auth::class]);
 
-Route::get("/api/demo", function () {
+Route::get("/demo", function () {
     return "this is api demo";
 });
 

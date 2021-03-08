@@ -181,7 +181,7 @@ class Server
         global $argv;
         $this->argv = $argv;
         if (!isset($this->argv[1])) {
-            exit("Usage: php {$this->argv[0]} [start|stop|reload|restart]\n");
+            exit("Usage: {$this->argv[0]} [start|stop|reload|restart]\n");
         }
         if (in_array('-d', $this->argv)) {
             $this->settings['daemonize'] = true;
@@ -227,7 +227,7 @@ class Server
                 }
                 break;
             default:
-                exit("Usage: php {$this->argv[0]} [start|stop|reload|restart]\n");
+                exit("Usage: {$this->argv[0]} [start|stop|reload|restart]\n");
         }
 
         if ($serverType == self::SERVER_TYPE_HTTP) {
@@ -297,10 +297,12 @@ class Server
                 try {
                     //processing http middleware
                     $result = '';
-                    foreach ($route['middleware'] as $alias) {
-                        $middlewares = Route::getMiddlewareByAlias($alias);
-                        foreach ($middlewares as $mid) {
-                            (new $mid)->handle($params);
+                    if (isset($route['middleware'])) {
+                        foreach ($route['middleware'] as $alias) {
+                            $middlewares = Route::getMiddlewareByAlias($alias);
+                            foreach ($middlewares as $mid) {
+                                (new $mid)->handle($params);
+                            }
                         }
                     }
 
@@ -335,10 +337,10 @@ class Server
             cli_set_process_title("$this->appName: master");
             Terminal::echoTableLine();
             if ($this->serverType & self::SERVER_TYPE_HTTP) {
-                echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
+                echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
             if ($this->serverType & self::SERVER_TYPE_WEBSOCKET) {
-                echo str_pad("websocket server", 18) . '|  ' . Terminal::getColoredText("ws://192.168.66.210:9501", Terminal::BOLD_BLUE) . PHP_EOL;
+                echo str_pad("websocket server", 18) . '|  ' . Terminal::getColoredText("ws://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
             echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? Terminal::getColoredText("not config!", Terminal::RED) : $this->appLogPath) . PHP_EOL;
             echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;

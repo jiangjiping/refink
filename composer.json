@@ -33,8 +33,8 @@
   },
   "scripts": {
     "post-root-package-install": [
-      "@php -r \"file_exists('config_example.php') || copy('config_example.php', 'config_dev.php');\"",
-      "@php -r \"file_exists('server_example') || copy('server_example', 'server');\""
+      "@php -r \"file_exists('config_dev.php') || copy('config_example.php', 'config_dev.php');\"",
+      "@php -r \"file_exists('server') || copy('server_example', 'server');\""
     ]
   }
 }

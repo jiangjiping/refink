@@ -9,7 +9,7 @@
 
 use Refink\Server;
 
-require './vendor/autoload.php';
+require __DIR__ . '/vendor/autoload.php';
 
 $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYPE_WEBSOCKET);
 //$app->initMySQLPool(40);
