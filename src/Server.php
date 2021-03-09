@@ -27,6 +27,8 @@ use Swoole\Server\Task;
 
 class Server
 {
+    use ErrorHandler;
+
     /**
      * the server support http protocol
      * @var integer
@@ -189,7 +191,6 @@ class Server
         $this->appRoot = dirname(__DIR__);
         $pidFileNamePrefix = md5($this->appRoot);
         $this->settings['pid_file'] = "/var/run/{$pidFileNamePrefix}.{$this->appName}.pid";
-        $this->settings['log_file'] = "{$this->appLogPath}/{$this->appName}.swoole.log";
         $this->listen = $listen;
         $this->port = $port;
         $this->serverType = $serverType;
@@ -444,52 +445,6 @@ class Server
         return is_file($configFile);
     }
 
-    private function setErrorHandler()
-    {
-        set_error_handler(function ($errno, $errStr, $errFile, $errLine) {
-            $errType = '';
-            switch ($errno) {
-                case E_ERROR:
-                    $errType = 'Php Fatal Error: ';
-                    break;
-                case E_WARNING:
-                    $errType = 'Php Warning: ';
-                    break;
-                case E_PARSE:
-                    $errType = 'Php Parse Error: ';
-                    break;
-                case E_NOTICE:
-                    $errType = 'Php Notice: ';
-                    break;
-                case E_CORE_ERROR:
-                    $errType = 'Php Core Error: ';
-                    break;
-                case E_CORE_WARNING:
-                    $errType = 'Php Core Warning: ';
-                    break;
-                case E_COMPILE_ERROR:
-                    $errType = 'Php Compile error: ';
-                    break;
-                case E_COMPILE_WARNING:
-                    $errType = 'php Compile Warning: ';
-                    break;
-                case E_USER_ERROR:
-                    $errType = 'Php User Error: ';
-                    break;
-                case E_USER_WARNING:
-                    $errType = 'Php User Warning: ';
-                    break;
-                case E_USER_NOTICE:
-                    $errType = 'Php User Notice: ';
-                    break;
-                default:
-                    $errType = "Unknown Error: ";
-                    break;
-            }
-
-            throw new \Exception("$errType $errStr");
-        });
-    }
 
     private function showLogo()
     {
@@ -571,6 +526,13 @@ LOGO;
     {
         if (!empty($logPath)) {
             $this->appLogPath = $logPath;
+            if (!is_dir($this->appLogPath)) {
+                mkdir($this->appLogPath, 0777, true);
+            }
+            if (!is_writeable($this->appLogPath)) {
+                exit("$this->appLogPath is not writeable\n");
+            }
+            $this->settings['log_file'] = "{$this->appLogPath}/{$this->appName}.swoole.log";
         }
         if (is_callable($handler)) {
             $this->appLogHandler = $handler;

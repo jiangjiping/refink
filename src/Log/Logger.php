@@ -54,7 +54,7 @@ class Logger
         $nowTime = time();
         $date = date("Y/m/d H:i:s", $nowTime);
         $prefix = strtolower($this->appLogFilePrefix);
-        file_put_contents($this->appLogPath . "/{$prefix}." . date('Ymd', $nowTime) . ".{$level}.log", "[$date] \"{$level}\" $content" . PHP_EOL, FILE_APPEND);
+        file_put_contents($this->appLogPath . "/{$prefix}." . date('Ymd', $nowTime) . "." . strtolower($level) . ".log", "[$date] \"{$level}\" $content" . PHP_EOL, FILE_APPEND);
         if (is_callable($this->appLogHandler)) {
             call_user_func($this->appLogHandler, $level, $content);
         }

@@ -1,0 +1,24 @@
+#! /usr/bin/env php
+<?php
+/**
+ * the php-cli console to run command function
+ * Created by PhpStorm.
+ * User: randy
+ * Date: 2021/3/8
+ */
+
+require __DIR__ . '/vendor/autoload.php';
+
+\co::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+
+$console = new Refink\Console(__DIR__ . '/app/Log1', function ($logLevel, $content) {
+    if ($logLevel == \Refink\Log\Logger::LEVEL_ERROR) {
+        //process your business.
+        var_dump($content);
+    }
+});
+$console->run();
+
+
+
+

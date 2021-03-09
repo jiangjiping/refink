@@ -20,9 +20,11 @@ $app = new Server("0.0.0.0", 9501, Server::SERVER_TYPE_HTTP | Server::SERVER_TYP
 //    'task_enable_coroutine' => true
 //]);
 //$app->setAppLogHandler(__DIR__ . '/app/Logs', function ($level, $content) {
-//    //process the log yourself, but not blocking this.
-//    var_dump($level);
-//    echo $content . PHP_EOL;
+//    // process the log yourself, but not blocking this.
+//    if ($level == \Refink\Log\Logger::LEVEL_ERROR) {
+//        var_dump($level);
+//        echo $content . PHP_EOL;
+//    }
 //});
 //$app->setAppName("MY_APP");
 

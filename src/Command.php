@@ -47,6 +47,9 @@ class Command
     public static function help()
     {
         $help = "supported commands are:\n";
+        if (empty(self::$commands)) {
+            return $help;
+        }
         foreach (self::$commands as $command => $item) {
             $help .= str_pad("", 2) . str_pad($command, 20) . $item['desc'];
         }
