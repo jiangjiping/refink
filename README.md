@@ -11,7 +11,7 @@
  - 支持异步任务：api接口将耗时任务放队列，后台进程异步消费，代码书写方式类似laravel的job，ide代码智能提示支持良好
    同时支持配置异步任务是并行还是串行(按顺序)执行
  - 支持基于websocket MVC结构，直接写业务代码即可，不用自己在处理websocket事件
- - 支持数据库连接池, 当前进支持redis和mysql
+ - 支持数据库连接池, 连接池的连接都是有心跳检测自动保活机制，当前进支持redis和mysql
  - 目前只能在协程环境中运行
  - 高性能：和原生swoole非常接近，因为框架代码极其精简，带来的性能损耗忽略不计
     
@@ -112,8 +112,25 @@ Usage:
  * 2 * * * /path/to/console migrate
 
 ```
+### 数据库基本操作
 
+```
+use Refink\Database\Pool\MySQLPool;
+use Refink\Database\Pool\RedisPool;
 
+<?php
+
+//mysql操作，整个调用链都是ide能代码提示的
+MySQLPool::getConn()->query("select * from `follow` where id=9")->fetch(\PDO::FETCH_ASSOC)
+
+//redis
+RedisPool::getConn()->get("test_key1")
+
+```
+
+### 关于ORM
+
+- 开发中...
 
 ### Refink作者的思考
 
