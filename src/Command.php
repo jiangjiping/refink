@@ -20,7 +20,7 @@ class Command
      * @param callable $func
      * @param string $desc
      */
-    public static function bind(string $command, $func, string $desc)
+    public static function register(string $command, $func, string $desc)
     {
         if (!isset(self::$commands[$command])) {
             self::$commands[$command] = [

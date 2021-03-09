@@ -7,4 +7,4 @@
 
 
 //console run function or method
-\Refink\Command::bind("migrate", [\App\Console\Migrate::class, 'run'], "迁移数据");
+\Refink\Command::register("migrate", [\App\Console\Migrate::class, 'run'], "迁移数据");

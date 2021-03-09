@@ -28,20 +28,14 @@ composer create-project refink/refink
  - 命令行启动server(终端挂起模式)
  
 ```
- refink/server_example start
+ refink/server start
 
 ```
  - 命令行启动server(daemonize守护进程模式)
  
 ```
- refink/server_example start -d
+ refink/server start -d
 
-```
-
-- 启动文件"server_example" 可以自己重命名，但是需要确保有执行权限：
-
-```
- chmod a+x server_example
 ```
 
 
@@ -95,6 +89,30 @@ app/routes.php中有示例代码
 - dev: php.ini添加配置APP_ENV=dev，则框架会自动加载项目根目录的 config_dev.php, 默认未配置也是加载它
 - test: php.ini添加配置APP_ENV=test, 则框架会自动加载项目根目录 config_test.php
 - prod: php.ini添加配置APP_ENV=prod, 则框架会自动加载 config_prod.php
+
+### php-cli命令行执行业务代码
+
+- 场景1：在linux crontab中执行的计划任务脚本
+- 场景2：需要单独在终端执行的代码
+- 使用方法: composer安装之后，项目根目录有个console可执行文件，这是php-cli下的入口文件, 单个可执行的php callable对象
+本框架称其为 用户自定义的command
+
+Usage: 
+
+```
+ 1、注册command命令:
+
+\Refink\Command::register("migrate", [\App\Console\Migrate::class, 'run'], "迁移数据");
+ 
+ 2 、terminal执行：
+
+ [~!#] /path/to/console migrate
+
+ 3、crontab配置
+ * 2 * * * /path/to/console migrate
+
+```
+
 
 
 ### Refink作者的思考

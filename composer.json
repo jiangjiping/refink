@@ -33,7 +33,9 @@
   },
   "scripts": {
     "post-root-package-install": [
-      "@php -r \"file_exists('config_dev.php') || copy('config_example.php', 'config_dev.php');\""
+      "@php -r \"file_exists('config_dev.php') || copy('config_example.php', 'config_dev.php');\"",
+      "@php -r \"file_exists('server') || (copy('server_example.php', 'server') && chmod('server', 0755));\"",
+      "@php -r \"file_exists('console') || (copy('console_example', 'console') && chmod('console', 0755));\""
     ]
   }
 }
