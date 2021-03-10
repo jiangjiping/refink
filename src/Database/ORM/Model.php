@@ -98,7 +98,6 @@ class Model
     private function buildQuery()
     {
         $sql = "select {$this->columns} from `{$this->table}` where 1=1 {$this->where} {$this->orderBy} {$this->limit}";
-        var_dump($sql);
         return trim($sql);
     }
 
@@ -305,8 +304,40 @@ class Model
         return $this->pdo->lastInsertId();
     }
 
-    public function delete(array $where)
-    {
 
+    public function delete()
+    {
+        $delSql = "delete from `{$this->table}`";
+        $delSql .= " where 1=1 {$this->where}";
+        $stmt = $this->pdo->prepare($delSql);
+        foreach ($this->bindValues as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $this->destroyQuery();
+        if (!$stmt->execute()) {
+            return false;
+        }
+        return $stmt->rowCount();
+    }
+
+    /**
+     * delete record by primary key
+     * @param $id
+     * @return boolean|integer
+     */
+    public function remove($id)
+    {
+        $sql = "delete from {$this->table} where {$this->primaryKey} = :id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(":id", $id);
+        if (!$stmt->execute()) {
+            return false;
+        }
+        return $stmt->rowCount();
+    }
+
+    public function getPDO()
+    {
+        return $this->pdo;
     }
 }

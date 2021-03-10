@@ -128,9 +128,74 @@ RedisPool::getConn()->get("test_key1")
 
 ```
 
-### 关于ORM
+### ORM快速开始
 
-- 开发中...
+```
+        $userModel = new UserModel();
+        //主键查询
+        $data['a'] = $userModel->find(3);
+        $data['b'] = $userModel->find(2);
+
+        //多个等值条件查询
+        $data['c'] = $userModel->where(['age' => 3, 'height' => 175])->get();
+       
+
+        //比较条件
+        $data['e'] = $userModel->where('user_id', '>', 2)->getAll();
+        $data['f'] = $userModel->where('user_id', 'in', [3, 1])->getAll();
+        $data['g'] = $userModel->where("user_id", 4)->get();
+        $data['h'] = $userModel->where("user_id", '=', 2)->get();
+
+        //比较条件和等值条件组合
+        $data['i'] = $userModel
+            ->where("user_id", '>', 2)
+            ->where(['type' => 1, 'age' => 29])
+            ->getAll();
+
+        $data['j'] = $userModel
+            ->where('name', Model::OPERATOR_LIKE, "%a%")
+            ->where('user_id', '>', 2)
+            ->where('type', 1)
+            ->getAll();
+
+        //order by和limit
+        $data['k'] = $userModel
+            ->columns("*")
+            ->where('name', Model::OPERATOR_LIKE, "%a%")
+            ->where('user_id', '>', 2)
+            ->where('type', 1)
+            ->orderBy('user_id', Model::SORT_ASC)
+            ->limit(1)
+            ->getAll();
+        
+        //更新
+        $userModel->where("user_id", 1)->update(['name' => 'ffff']);
+        $userModel->where("user_id", '>', 3)->update(['avatar' => 'eeee.png', 'type' => Model::incr(10)]);
+        $userModel->where("user_id", '>', 3)->update(['avatar' => 'eeee.png', 'height' => Model::decr(10)]);
+
+        //插入
+        for ($i = 0; $i < 10; $i++) {
+            $userModel->insert([
+                'name'   => "name_{$i}",
+                'avatar' => "random_{$i}.png",
+                'age'    => 10 + $i,
+                'height' => mt_rand(170, 190),
+                'type'   => mt_rand(0, 1)
+            ]);
+        }
+         
+         //主键删除
+        $userModel->remove(10);
+        
+        //条件删除
+        $userModel->where('user_id', Model::OPERATOR_IN, [13, '14'])->delete();
+
+        //原生查询
+        $data['pdo'] = $userModel->getPDO()->query("select * from `user`")->fetchAll(\PDO::FETCH_ASSOC);
+
+```
+
+
 
 ### Refink作者的思考
 
