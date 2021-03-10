@@ -81,6 +81,7 @@ class UserController extends Controller
 
         $userModel->where("user_id", 1)->update(['name' => 'ffff']);
         $userModel->where("user_id", '>', 3)->update(['avatar' => 'eeee.png', 'type' => Model::incr(10)]);
+        $userModel->where("user_id", '>', 3)->update(['avatar' => 'eeee.png', 'height' => Model::decr(10)]);
 
 
         return $this->success($data, "HAHA");
