@@ -51,24 +51,36 @@ class UserController extends Controller
 //        var_dump($lastInsertId);
 
         $userModel = new UserModel();
-        $data['a'] = $userModel->find(3);
-        $data['b'] = $userModel->find(2);
-        $data['c'] = $userModel->where(['age' => 3, 'height' => 175])->get();
-        $data['d'] = $userModel->where(['age' => 3, 'height' => 175])->get();
-        $data['e'] = $userModel->where('user_id', '>', 2)->getAll();
-        $data['f'] = $userModel->where('user_id', 'in', [3, 1])->getAll();
-        $data['g'] = $userModel->where("user_id", 4)->get();
-        $data['h'] = $userModel->where("user_id", '=', 2)->get();
-        $data['i'] = $userModel
-            ->where("user_id", '>', 2)
-            ->where(['type' => 1, 'age' => 29])
-            ->getAll();
+//        $data['a'] = $userModel->find(3);
+//        $data['b'] = $userModel->find(2);
+//        $data['c'] = $userModel->where(['age' => 3, 'height' => 175])->get();
+//        $data['d'] = $userModel->where(['age' => 3, 'height' => 175])->get();
+//        $data['e'] = $userModel->where('user_id', '>', 2)->getAll();
+//        $data['f'] = $userModel->where('user_id', 'in', [3, 1])->getAll();
+//        $data['g'] = $userModel->where("user_id", 4)->get();
+//        $data['h'] = $userModel->where("user_id", '=', 2)->get();
+//        $data['i'] = $userModel
+//            ->where("user_id", '>', 2)
+//            ->where(['type' => 1, 'age' => 29])
+//            ->getAll();
+//
+//        $data['j'] = $userModel
+//            ->where('name', Model::OPERATOR_LIKE, "%a%")
+//            ->where('user_id', '>', 2)
+//            ->where('type', 1)
+//            ->getAll();
 
-        $data['j'] = $userModel
-            ->where('name', Model::OPERATOR_LIKE, "%a%")
-            ->where('user_id', '>', 2)
-            ->where('type', 1)
-            ->getAll();
+//        $data['k'] = $userModel
+//            ->columns("*")
+//            ->where('name', Model::OPERATOR_LIKE, "%a%")
+//            ->where('user_id', '>', 2)
+//            ->where('type', 1)
+//            ->orderBy('user_id', Model::SORT_ASC)
+//            ->limit(1)
+//            ->getAll();
+
+        $userModel->where("user_id", 1)->update(['name' => 'ffff']);
+        $userModel->where("user_id", '>', 3)->update(['avatar' => 'eeee.png', 'type' => Model::incr(10)]);
 
 
         return $this->success($data, "HAHA");

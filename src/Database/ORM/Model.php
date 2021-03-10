@@ -39,6 +39,9 @@ class Model
 
     private $columns = '*';
 
+    private static $incrPlaceholder = '__refink_orm_incr__';
+    private static $decrPlaceholder = '__refink_orm_decr__';
+
     /**
      * @var \PDO
      */
@@ -95,6 +98,7 @@ class Model
     private function buildQuery()
     {
         $sql = "select {$this->columns} from `{$this->table}` where 1=1 {$this->where} {$this->orderBy} {$this->limit}";
+        var_dump($sql);
         return trim($sql);
     }
 
@@ -182,11 +186,12 @@ class Model
     /**
      * @param string $column
      * @param string $sort
-     * @return static
+     * @return $this
      */
     public function orderBy(string $column, $sort = self::SORT_ASC)
     {
-
+        $this->orderBy = " order by `{$column}` {$sort} ";
+        return $this;
     }
 
     /**
@@ -196,6 +201,10 @@ class Model
      */
     public function columns(...$args)
     {
+        if (empty($args) || $args[0] == '*') {
+            return $this;
+        }
+        $this->columns = '';
         foreach ($args as $arg) {
             $lowerColumn = strtolower($arg);
             if (strpos($lowerColumn, ' as ') !== false) {
@@ -219,16 +228,56 @@ class Model
      */
     public function limit(int $limit, int $offset = 0)
     {
+        $this->limit = "limit $offset, $limit";
+        return $this;
 
     }
 
     /**
-     * @param array $kv update data
+     * @param array $kvData update data
      */
-    public function update(array $kv)
+    public function update(array $kvData)
     {
+        $updateSql = "update `{$this->table}` set ";
+        $bindValues = [];
+        foreach ($kvData as $k => $v) {
+            if (strpos($v, self::$incrPlaceholder) !== false) {
+                $incr = (int)str_replace(self::$incrPlaceholder, '', $v);
+                $updateSql .= "`{$k}`=`{$k}` + {$incr}, ";
+                continue;
+            }
+            if (strpos($v, self::$decrPlaceholder) !== false) {
+                $decr = (int)str_replace(self::$decrPlaceholder, '', $v);
+                $updateSql .= "`{$k}`=`{$k}` - {$decr}, ";
+                continue;
+            }
+            $updateSql .= "`{$k}`=:{$k}, ";
+            $bindValues[":{$k}"] = $v;
+        }
+        $updateSql = rtrim($updateSql, ", ");
+        $updateSql .= " where 1=1 {$this->where}";
+        $stmt = $this->pdo->prepare($updateSql);
+        foreach ($bindValues as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        foreach ($this->bindValues as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $this->destroyQuery();
+        if (!$stmt->execute()) {
+            return false;
+        }
+        return $stmt->rowCount();
+    }
 
+    public static function incr($val)
+    {
+        return self::$incrPlaceholder . $val;
+    }
 
+    public static function decr($val)
+    {
+        return self::$decrPlaceholder . $val;
     }
 
     /**
