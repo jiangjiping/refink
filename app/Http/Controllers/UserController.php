@@ -15,11 +15,12 @@ use Refink\Database\ORM\Model;
 use Refink\Database\Pool\MySQLPool;
 use Refink\Database\Pool\RedisPool;
 use Refink\Http\Controller;
+use Swoole\Server;
 
 class UserController extends Controller
 {
 
-    public function login($request)
+    public function login($request, Server $serv)
     {
         //func();
 //        var_dump($request['4444']);
@@ -99,6 +100,7 @@ class UserController extends Controller
 
         $data['pdo'] = $userModel->getPDO()->query("select * from `user`")->fetchAll(\PDO::FETCH_ASSOC);
 
+        $data['queue_consumer_num'] = Config::getInstance()->get('refink.queue_consumer_num');
 
         return $this->success($data, "HAHA");
     }

@@ -78,6 +78,13 @@ class Server
     private $queueDriver;
 
     /**
+     * how many task worker used for queue consume.
+     * this value must <= swoole.settings.task_worker_num
+     * @var integer
+     */
+    private $queueConsumerNum;
+
+    /**
      * control how many jobs can concurrent running
      * @var int
      */
@@ -129,11 +136,6 @@ class Server
     private $argv;
 
     /**
-     * @var string set the process title
-     */
-    private $processName = "refink";
-
-    /**
      * @var array the swoole server config
      */
     private $settings;
@@ -171,6 +173,12 @@ class Server
      * @var callable
      */
     private $webSocketOnCloseHandler;
+
+    /**
+     * the server's lan ip address
+     * @var string
+     */
+    private $lanIP;
 
     /**
      * Server constructor
@@ -337,6 +345,7 @@ class Server
         $this->swooleServer->on('start', function ($server) {
             cli_set_process_title("$this->appName: master");
             Terminal::echoTableLine();
+            //$lanIPs = swoole_get_local_ip();
             if ($this->serverType & self::SERVER_TYPE_HTTP) {
                 echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
@@ -355,6 +364,8 @@ class Server
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
+            print_r($task->data);
+            print_r("task processed\n");
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
@@ -371,7 +382,8 @@ class Server
 
             $name = "worker";
             $inTaskWorker = false;
-            if ($workerId >= $this->swooleServer->setting['worker_num']) {
+            $taskWorkerId = $workerId - $this->swooleServer->setting['worker_num'];
+            if ($taskWorkerId >= 0) {
                 $name = "task worker";
                 $inTaskWorker = true;
             }
@@ -383,36 +395,41 @@ class Server
                 call_user_func($this->mysqlPoolCreateFunc, new MySQLConfig(MYSQL['host'], MYSQL['port'], MYSQL['db_name'], MYSQL['username'], MYSQL['passwd'], MYSQL['options']));
             }
 
-            //task worker callback
             if ($inTaskWorker && !is_null($this->queueDriver)) {
-                $context = [];
-                while (true) {
-                    $job = $this->queueDriver->dequeue($workerId - $this->swooleServer->setting['worker_num']);
-                    if (empty($job)) {
-                        \co::sleep(0.2);
-                        continue;
-                    }
+                $jobWorkerId = $taskWorkerId - $this->queueConsumerNum;
+                if ($jobWorkerId >= 0) {
+                    $context = [];
+                    cli_set_process_title("$this->appName: task worker (queue consumer)");
+                    while (true) {
+                        $job = $this->queueDriver->dequeue($jobWorkerId);
+                        if (empty($job)) {
+                            \co::sleep(0.2);
+                            continue;
+                        }
 
-                    //main coroutine dispatch job to user queue, this step like lock
-                    $this->jobSequential && JobChannel::getInstance($job->getGroupId())->push($job);
+                        //main coroutine dispatch job to user queue, this step like lock
+                        $this->jobSequential && JobChannel::getInstance($job->getGroupId())->push($job);
 
-                    //control the peak coroutine number
-                    while (count($context) > $this->jobConcurrentNum) {
-                        \co::sleep(0.02);
-                    }
-                    go(function () use ($job, &$context) {
-                        $cid = \co::getCid();
-                        $context[$cid] = 1;
-                        defer(function () use ($cid, $job, &$context) {
-                            //this step like unlock
-                            $this->jobSequential && JobChannel::getInstance($job->getGroupId())->pop();
-                            unset($context[$cid]);
+                        //control the peak coroutine number
+                        while (count($context) > $this->jobConcurrentNum) {
+                            \co::sleep(0.02);
+                        }
+                        go(function () use ($job, &$context) {
+                            $cid = \co::getCid();
+                            $context[$cid] = 1;
+                            defer(function () use ($cid, $job, &$context) {
+                                //this step like unlock
+                                $this->jobSequential && JobChannel::getInstance($job->getGroupId())->pop();
+                                unset($context[$cid]);
+                            });
+                            \co::sleep(mt_rand(1, 5));
+                            $job->handle();
                         });
-                        \co::sleep(mt_rand(1, 5));
-                        $job->handle();
-                    });
+                    }
                 }
+                //for onTask
             }
+
         });
 
     }
@@ -432,7 +449,7 @@ class Server
         }
 
         Config::getInstance([
-            'refink' => $this->swooleServer->setting
+            'refink' => array_merge($this->swooleServer->setting, ['queue_consumer_num' => $this->queueConsumerNum])
         ]);
     }
 
@@ -567,13 +584,15 @@ LOGO;
      * [optional] set the swoole task worker receive job callback func, if set this
      * the task worker will loop for this handler
      * @param QueueInterface $driver if you want to
+     * @param int $queueConsumerNum how many task workers used for queue consume
      * @param int $jobConcurrentNum how many job can concurrent running
      * @param bool $jobSequential to control the job processing in Sequential
      * @return $this
      */
-    public function setQueueDriver(QueueInterface $driver, $jobConcurrentNum = 1024, $jobSequential = true)
+    public function setQueueDriver(QueueInterface $driver, $queueConsumerNum = 4, $jobConcurrentNum = 1024, $jobSequential = true)
     {
         $this->queueDriver = $driver;
+        $this->queueConsumerNum = $queueConsumerNum;
         $this->jobConcurrentNum = $jobConcurrentNum;
         $this->jobSequential = $jobSequential;
         return $this;
@@ -621,6 +640,10 @@ LOGO;
     {
         if (!$this->checkEnv($configFile)) {
             exit("config file: " . Terminal::getColoredText("$configFile", Terminal::RED) . " not found, please config it first!" . PHP_EOL);
+        }
+
+        if (!empty($this->settings['task_worker_num']) && $this->queueConsumerNum > $this->settings['task_worker_num']) {
+            exit(Terminal::getColoredText("the queue consumer number must <= swoole.settings.task_worker_num\n", Terminal::RED) . "call Refink\Server::setQueueDriver to resize the queue consumer number.\n");
         }
 
         $this->swooleServer->set($this->settings);
