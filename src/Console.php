@@ -13,6 +13,7 @@ use Refink\Database\Config\RedisConfig;
 use Refink\Database\Pool\MySQLPool;
 use Refink\Database\Pool\RedisPool;
 use Refink\Exception\CommandException;
+use Refink\Exception\ErrorHandler;
 use Refink\Log\Logger;
 use Swoole\Timer;
 

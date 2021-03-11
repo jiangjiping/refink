@@ -5,7 +5,7 @@
  * Date: 2021/3/8
  */
 
-namespace Refink;
+namespace Refink\Exception;
 
 
 trait ErrorHandler

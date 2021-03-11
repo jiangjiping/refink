@@ -7,11 +7,13 @@
 
 namespace Refink;
 
+use Refink\Cluster\Gateway;
 use Refink\Database\Config\MySQLConfig;
 use Refink\Database\Config\RedisConfig;
 use Refink\Database\Pool\MySQLPool;
 use Refink\Database\Pool\RedisPool;
 use Refink\Exception\ApiException;
+use Refink\Exception\ErrorHandler;
 use Refink\Exception\MiddlewareException;
 use Refink\Http\Controller;
 use Refink\Http\Route;
@@ -175,10 +177,16 @@ class Server
     private $webSocketOnCloseHandler;
 
     /**
-     * the server's lan ip address
+     * the server's lan ip address in the cluster
      * @var string
      */
-    private $lanIP;
+    private $clusterLanIP;
+
+    /**
+     * this lan port for the server communication each other in the cluster
+     * @var integer
+     */
+    private $clusterLanPort;
 
     /**
      * Server constructor
@@ -258,12 +266,12 @@ class Server
                     $routeKey = empty($this->webSocketMsgRouteKey) ? 'event' : $this->webSocketMsgRouteKey;
                     $data = is_callable($this->webSocketMsgDecoder) ? call_user_func($this->webSocketMsgDecoder, $frame->data) : json_decode($frame->data, true);
                     if (!isset($data[$routeKey])) {
-                        return $server->push($frame->fd, \Refink\WebSocket\Response::error("route key not found!"));
+                        return $server->push($frame->fd, WebSocket\Response::error("route key not found!"));
                     }
 
                     $func = Dispatcher::getRoutes($data[$routeKey]);
                     if (empty($func)) {
-                        return $server->push($frame->fd, \Refink\WebSocket\Response::error("dispatcher not found!"));
+                        return $server->push($frame->fd, WebSocket\Response::error("dispatcher not found!"));
                     }
 
                     if (is_array($func) && class_exists($func[0])) {
@@ -272,7 +280,7 @@ class Server
                     $response = call_user_func($func, $data);
                     $server->push($frame->fd, $response);
                 } catch (\Throwable $e) {
-                    $result = \Refink\WebSocket\Response::error($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                    $result = WebSocket\Response::error($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                     Logger::getInstance()->error($result);
                     return $server->push($frame->fd, $result);
                 }
@@ -334,7 +342,7 @@ class Server
                     $result = $e->getMessage();
                     Logger::getInstance()->error($result);
                 } catch (\Throwable $e) { //use \Throwable instead of \Exception, because PHP Fatal error can not be try catch by \Exception
-                    $result = \Refink\Http\Response::error($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                    $result = Http\Response::error($e->getMessage() . ', trace: ' . json_encode($e->getTrace(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                     Logger::getInstance()->error($result);
                 } finally {
                     $response->end($result);
@@ -395,6 +403,10 @@ class Server
                 call_user_func($this->mysqlPoolCreateFunc, new MySQLConfig(MYSQL['host'], MYSQL['port'], MYSQL['db_name'], MYSQL['username'], MYSQL['passwd'], MYSQL['options']));
             }
 
+            if ($workerId == 0) {
+                Gateway::register($this->clusterLanIP, $this->clusterLanPort);
+            }
+
             if ($inTaskWorker && !is_null($this->queueDriver)) {
                 $jobWorkerId = $taskWorkerId - $this->queueConsumerNum;
                 if ($jobWorkerId >= 0) {
@@ -431,7 +443,14 @@ class Server
 
         });
 
+        $this->swooleServer->on('workerStop', function ($server, int $workerId) {
+            if ($workerId == 0) {
+                Gateway::unregister($this->clusterLanIP, $this->clusterLanPort);
+            }
+        });
+
     }
+
 
     private function loadConfig()
     {
@@ -604,7 +623,7 @@ LOGO;
      */
     public function setHttpResponsePacker($successPacker, $errorPacker)
     {
-        \Refink\Http\Response::setPacker($successPacker, $errorPacker);
+        Http\Response::setPacker($successPacker, $errorPacker);
     }
 
     /**
@@ -614,7 +633,7 @@ LOGO;
      */
     public function setWebSocketPacker($successPacker, $errorPacker)
     {
-        \Refink\WebSocket\Response::setPacker($successPacker, $errorPacker);
+        WebSocket\Response::setPacker($successPacker, $errorPacker);
     }
 
     /**
@@ -633,6 +652,30 @@ LOGO;
     public function setWebSocketOnClose($func)
     {
         $this->webSocketOnCloseHandler = $func;
+    }
+
+
+    public function enableCluster($eth = 'eth0', $port = 9600)
+    {
+        $ips = swoole_get_local_ip();
+        if (empty($ips[$eth])) {
+            exit(Terminal::getColoredText("can not get lan ip from {$eth}!\n", Terminal::RED));
+        }
+        $this->clusterLanIP = $ips[$eth];
+        $this->clusterLanPort = $port;
+
+        $clusterPort = $this->swooleServer->addlistener($this->clusterLanIP, $port, SWOOLE_SOCK_TCP);
+        $clusterPort->set([
+            'open_length_check'     => true,
+            'package_length_type'   => 'N',
+            'package_length_offset' => 0,
+            'package_body_offset'   => 4,
+            'package_max_length'    => 1024 * 1024
+        ]);
+        $clusterPort->on('receive', function ($serv, $fd, $reactor_id, $data) {
+            $serv->send($fd, 'Swoole: ' . $data);
+            $serv->close($fd);
+        });
     }
 
     public function run()
