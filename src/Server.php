@@ -422,7 +422,6 @@ class Server
                                 $this->jobSequential && JobChannel::getInstance($job->getGroupId())->pop();
                                 unset($context[$cid]);
                             });
-                            \co::sleep(mt_rand(1, 5));
                             $job->handle();
                         });
                     }
