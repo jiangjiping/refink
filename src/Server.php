@@ -59,6 +59,8 @@ class Server
      */
     const HTTP_CONTENT_TYPE_TEXT = 'text/plain';
 
+    const RELOAD_MIN_ATOMIC = 1000000;
+
     /**
      * the http server response content-type
      * @var string
@@ -407,10 +409,12 @@ class Server
              * refink use swoole atomic to control when the tick timer will stop.
              */
             $timerId = Timer::tick(1 * 1000, function () {
-                if (!$this->atomic->get()) {
+                $val = $this->atomic->get();
+                if ($val == 0 || $val > self::RELOAD_MIN_ATOMIC) {
                     TimerManager::clearAll();
                 }
             });
+
             TimerManager::add($timerId);
 
             $name = "worker";
@@ -438,7 +442,12 @@ class Server
                     $context = [];
                     cli_set_process_title("$this->appName: task worker (queue consumer)");
                     //use swoole atomic to control when loop will stop
-                    while ($this->atomic->get()) {
+                    $running = true;
+                    while ($running) {
+                        $getAtomic = $this->atomic->get();
+                        if ($getAtomic == 0 || $getAtomic > self::RELOAD_MIN_ATOMIC) {
+                            $running = false;
+                        }
                         $job = $this->queueDriver->dequeue($jobWorkerId);
                         if (empty($job)) {
                             \co::sleep(0.2);
@@ -723,7 +732,7 @@ LOGO;
         });
         //reload
         Process::signal(SIGRTMIN + 2, function () {
-            $this->atomic->set(0);
+            $this->atomic->set(self::RELOAD_MIN_ATOMIC);
             $this->swooleServer->reload();
         });
 
@@ -731,10 +740,6 @@ LOGO;
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
         empty($this->settings['daemonize']) && $this->showLogo();
-
-//        Timer::after(2 * 1000, function () {
-//            $this->atomic->set(0);
-//        });
 
         $this->atomic = new Atomic();
 
