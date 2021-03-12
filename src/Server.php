@@ -8,6 +8,7 @@
 namespace Refink;
 
 use Refink\Cluster\Gateway;
+use Refink\Cluster\Protocol;
 use Refink\Database\Config\MySQLConfig;
 use Refink\Database\Config\RedisConfig;
 use Refink\Database\Pool\MySQLPool;
@@ -21,9 +22,12 @@ use Refink\Job\JobChannel;
 use Refink\Job\QueueInterface;
 use Refink\Log\Logger;
 use Refink\WebSocket\Dispatcher;
+use Swoole\Atomic;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
+use Swoole\Process;
 use Swoole\Server\Task;
+use Swoole\Timer;
 
 \co::set(['hook_flags' => SWOOLE_HOOK_ALL]);
 
@@ -189,6 +193,11 @@ class Server
     private $clusterLanPort;
 
     /**
+     * @var Atomic
+     */
+    private $atomic;
+
+    /**
      * Server constructor
      * @param string $listen
      * @param int $port
@@ -211,11 +220,12 @@ class Server
         $this->port = $port;
         $this->serverType = $serverType;
         $lastMasterPid = is_file($this->settings['pid_file']) ? (int)trim(file_get_contents($this->settings['pid_file'])) : 0;
+
         switch ($this->argv[1]) {
             case "start":
                 //check server is already running
                 if ($lastMasterPid) {
-                    if (posix_kill($lastMasterPid, 0)) {
+                    if (Process::kill($lastMasterPid, 0)) {
                         exit(Terminal::getColoredText("the server is running!", Terminal::RED) . PHP_EOL);
                     }
                     //the last master process's pid is old and the master process is not exists.
@@ -224,21 +234,21 @@ class Server
                 break;
             case "stop":
                 if (!$lastMasterPid) {
-                    return;
+                    exit();
                 }
-                posix_kill($lastMasterPid, SIGTERM);
+                Process::kill($lastMasterPid, SIGRTMIN + 1);
                 exit();
             case "reload":
                 if (!$lastMasterPid) {
-                    return;
+                    exit();
                 }
-                posix_kill($lastMasterPid, SIGUSR1);
+                Process::kill($lastMasterPid, SIGRTMIN + 2);
                 exit();
             case "restart":
                 if ($lastMasterPid) {
-                    posix_kill($lastMasterPid, SIGTERM);
+                    Process::kill($lastMasterPid, SIGRTMIN + 1);
                     //check if the master process is exit
-                    while (posix_kill($lastMasterPid, 0)) {
+                    while (Process::kill($lastMasterPid, 0)) {
                         usleep(20000);
                     }
                 }
@@ -388,6 +398,21 @@ class Server
             //init log handler
             Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
 
+            $this->atomic->add(1);
+            /**
+             * when server reload or stop, process will not exit until all timer are finished
+             * because the worker process has tick timer, such as db connection pool heartbeat check,
+             * so worker process will be force kill until swoole.max_wait_time happen.
+             *
+             * refink use swoole atomic to control when the tick timer will stop.
+             */
+            $timerId = Timer::tick(1 * 1000, function () {
+                if (!$this->atomic->get()) {
+                    TimerManager::clearAll();
+                }
+            });
+            TimerManager::add($timerId);
+
             $name = "worker";
             $inTaskWorker = false;
             $taskWorkerId = $workerId - $this->swooleServer->setting['worker_num'];
@@ -412,7 +437,8 @@ class Server
                 if ($jobWorkerId >= 0) {
                     $context = [];
                     cli_set_process_title("$this->appName: task worker (queue consumer)");
-                    while (true) {
+                    //use swoole atomic to control when loop will stop
+                    while ($this->atomic->get()) {
                         $job = $this->queueDriver->dequeue($jobWorkerId);
                         if (empty($job)) {
                             \co::sleep(0.2);
@@ -672,9 +698,10 @@ LOGO;
             'package_body_offset'   => 4,
             'package_max_length'    => 1024 * 1024
         ]);
+
         $clusterPort->on('receive', function ($serv, $fd, $reactor_id, $data) {
-            $serv->send($fd, 'Swoole: ' . $data);
-            $serv->close($fd);
+            $data = Protocol::decode($data);
+
         });
     }
 
@@ -689,14 +716,27 @@ LOGO;
         }
 
         $this->swooleServer->set($this->settings);
+        //stop
+        Process::signal(SIGRTMIN + 1, function () {
+            $this->atomic->set(0);
+            $this->swooleServer->shutdown();
+        });
         //reload
-        pcntl_signal(SIGUSR1, function () {
+        Process::signal(SIGRTMIN + 2, function () {
+            $this->atomic->set(0);
             $this->swooleServer->reload();
         });
+
         //save master process pid
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
         empty($this->settings['daemonize']) && $this->showLogo();
+
+//        Timer::after(2 * 1000, function () {
+//            $this->atomic->set(0);
+//        });
+
+        $this->atomic = new Atomic();
 
         $this->swooleServer->start();
     }

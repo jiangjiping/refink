@@ -11,6 +11,7 @@ namespace Refink\Cluster;
 
 use Refink\Database\Pool\RedisPool;
 use Refink\Log\Logger;
+use Refink\TimerManager;
 use Swoole\Client;
 use Swoole\Timer;
 
@@ -49,23 +50,27 @@ class Gateway
         self::$lastRegistryTime = time();
 
         //timer refresh the node info
-        Timer::tick(60 * 1000, function () {
+        $timerId = Timer::tick(60 * 1000, function () {
             $nodes = self::getAllNodesFromRegistry();
             if (!empty($nodes)) {
                 self::$cacheNodes = $nodes;
             }
+            //todo check all tcp clients is alive
         });
+        TimerManager::add($timerId);
     }
 
     /**
-     * forward message to some other nodes in the cluster exclude self node.
+     * forward message to some target
      * @param $message
-     * @param array $includeLanIPs if empty means forward message to all other nodes
+     * @param array $targetNodes eg: array("192.168.2.100:9600","192.168.2.101:9600"), if empty then forward to all other nodes in the cluster
      * @param
      */
-    public static function forward($message, array $includeLanIPs = [])
+    public static function forward($message, array $targetNodes = [])
     {
-        foreach (self::getAllNodes() as $node) {
+        empty($targetNodes) && $targetNodes = self::getAllNodes();
+        $message = Protocol::encode($message);
+        foreach ($targetNodes as $node) {
             list($ip, $port) = explode(':', $node, 2);
             if (!isset(self::$nodeTcpClients[$node])) {
                 //default is non blocking socket
@@ -78,6 +83,7 @@ class Gateway
                 self::$nodeTcpClients[$node]->send($message);
             }
         }
+
     }
 
     /**
@@ -92,7 +98,6 @@ class Gateway
             }
         }
         return self::$cacheNodes;
-
     }
 
     /**
@@ -111,12 +116,18 @@ class Gateway
      */
     public static function unregister($lanIP, $lanPort)
     {
-        var_dump("begin");
-        $ret = RedisPool::getConn()->sRem(self::RDS_KEY_CLUSTER, "$lanIP:$lanPort");
-        if ($ret) {
-            Logger::getInstance()->info("rem ok");
-        } else {
-            Logger::getInstance()->info("rem err");
+        /**
+         * because unregister invoked on worker stop, that time is not in coroutine context,
+         * so we need to use sync redis io
+         */
+        $redis = new \Redis();
+        $redis->connect(REDIS['host'], REDIS['port']);
+        if (!empty(REDIS['passwd'])) {
+            $redis->auth(REDIS['passwd']);
         }
+        if (isset(REDIS['db']) && REDIS['db']) {
+            $redis->select(REDIS['db']);
+        }
+        $redis->sRem(self::RDS_KEY_CLUSTER, "$lanIP:$lanPort");
     }
 }

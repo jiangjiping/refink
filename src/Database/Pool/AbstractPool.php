@@ -10,6 +10,7 @@ namespace Refink\Database\Pool;
 
 
 use Refink\Database\Config\AbstractConfig;
+use Refink\TimerManager;
 use Swoole\Coroutine\Channel;
 use Swoole\Timer;
 
@@ -42,7 +43,7 @@ abstract class AbstractPool
     public function heartbeat()
     {
         //check pool per minute
-        Timer::tick(60 * 1000, function () {
+        $timerId = Timer::tick(60 * 1000, function () {
             $nowTime = time();
             //pool empty tell us that: all the connections are busy, so all connection are alive
             if ($this->pool->isEmpty()) {
@@ -64,6 +65,8 @@ abstract class AbstractPool
             }
 
         });
+
+        TimerManager::add($timerId);
     }
 
     //create a new connection
