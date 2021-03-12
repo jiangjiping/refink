@@ -7,6 +7,7 @@
 
 namespace Refink;
 
+use App\WebSocket\Handlers\SwooleTaskHandler;
 use Refink\Cluster\Gateway;
 use Refink\Cluster\Protocol;
 use Refink\Database\Config\MySQLConfig;
@@ -108,7 +109,7 @@ class Server
      * Application name. the terminal process title prefix will use it.
      * @var string
      */
-    private $appName = 'Refink';
+    private $appName = 'refink';
 
     /**
      * the application's all log files save path
@@ -342,9 +343,9 @@ class Server
                             $action = $route['func'][1];
                             /** @var Controller $class */
                             $class = new $class;
-                            $result = $class->$action($params, $this->swooleServer);
+                            $result = $class->$action($params);
                         } else {
-                            $result = call_user_func($route['func'], $params, $this->swooleServer);
+                            $result = call_user_func($route['func'], $params);
                         }
                     }
                 } catch (MiddlewareException $e) {
@@ -384,8 +385,7 @@ class Server
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
-            print_r($task->data);
-            print_r("task processed\n");
+            SwooleTaskHandler::handle($server, $task->data);
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
@@ -423,6 +423,8 @@ class Server
             if ($taskWorkerId >= 0) {
                 $name = "task worker";
                 $inTaskWorker = true;
+            } else {
+                Controller::bindSwooleServer($this->swooleServer);
             }
             cli_set_process_title("$this->appName: {$name}");
             if (is_callable($this->redisPoolCreateFunc)) {

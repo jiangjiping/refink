@@ -8,8 +8,10 @@
 namespace App\Http\Controllers;
 
 
+use App\Jobs\Push;
 use App\Jobs\SyncUserInfo;
 use App\Models\UserModel;
+use Refink\Cluster\Protocol;
 use Refink\Config;
 use Refink\Database\ORM\Model;
 use Refink\Database\Pool\MySQLPool;
@@ -20,7 +22,7 @@ use Swoole\Server;
 class UserController extends Controller
 {
 
-    public function login($request, Server $serv)
+    public function login($request)
     {
         //func();
 //        var_dump($request['4444']);
@@ -30,12 +32,11 @@ class UserController extends Controller
         // $data = array_merge($data, $request);
         //var_dump(333);
         $data = [];
-        // $server->task(['a' => 1, 'name' => 'xx33333']);
 
         //$data = RedisPool::getConn()->get("test_key1");
 //        for ($i = 0; $i < 10; $i++) {
 //            $job = new SyncUserInfo(666, "name_{$i}", "ok_{$i}.png", $i + 100);
-//            $this->dispatch($job);
+//            $this->postJob($job);
 //        }
 //        $data['app_key'] = APP_KEY;
 //        $data['new_haha'] = "update";
@@ -103,5 +104,11 @@ class UserController extends Controller
         $data['queue_consumer_num'] = Config::getInstance()->get('refink.queue_consumer_num');
 
         return $this->success($data, "HAHA");
+    }
+
+    public function test($req)
+    {
+        $this->push([2], "hello body!");
+        return $this->success('OK');
     }
 }
