@@ -118,19 +118,7 @@ class Gateway
      */
     public static function unregister($lanIP, $lanPort)
     {
-        /**
-         * because unregister invoked on worker stop, that time is not in coroutine context,
-         * so we need to use sync redis io
-         */
-        $redis = new \Redis();
-        $redis->connect(REDIS['host'], REDIS['port']);
-        if (!empty(REDIS['passwd'])) {
-            $redis->auth(REDIS['passwd']);
-        }
-        if (isset(REDIS['db']) && REDIS['db']) {
-            $redis->select(REDIS['db']);
-        }
-        $redis->sRem(self::RDS_KEY_CLUSTER, "$lanIP:$lanPort");
+        RedisPool::getConn()->sRem(self::RDS_KEY_CLUSTER, "$lanIP:$lanPort");
     }
 
     private static function getRdsKeyUidBindFd($userId)
@@ -144,7 +132,7 @@ class Gateway
     }
 
     /**
-     * bind userId in the cluster
+     * bind userId in the cluster, eg. on websocket open event
      * @param $userId
      * @param $lanIP
      * @param $lanPort
@@ -156,6 +144,12 @@ class Gateway
         RedisPool::getConn()->set(self::getRdsKeyFdBindUid($lanIP, $lanPort, $fd), $userId);
     }
 
+    /**
+     * on websocket close event, you may unbind
+     * @param $lanIP
+     * @param $lanPort
+     * @param $fd
+     */
     public static function unbind($lanIP, $lanPort, $fd)
     {
         $userId = self::getUserId($lanIP, $lanPort, $fd);

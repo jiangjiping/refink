@@ -7,7 +7,6 @@
 
 namespace Refink;
 
-use App\WebSocket\Handlers\Push;
 use Refink\Cluster\Gateway;
 use Refink\Cluster\Protocol;
 use Refink\Database\Config\MySQLConfig;
@@ -28,7 +27,6 @@ use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Process;
 use Swoole\Server\Task;
-use Swoole\Timer;
 
 \co::set(['hook_flags' => SWOOLE_HOOK_ALL]);
 
@@ -366,19 +364,19 @@ class Server
         $this->swooleServer->on('start', function ($server) {
             cli_set_process_title("$this->appName: master");
             Terminal::echoTableLine();
-            //$lanIPs = swoole_get_local_ip();
+            $padLen = 18;
             if ($this->serverType & self::SERVER_TYPE_HTTP) {
-                echo str_pad("http server", 18) . '|  ' . Terminal::getColoredText("http://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
+                echo str_pad("http server", $padLen) . '|  ' . Terminal::getColoredText("http://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
             if ($this->serverType & self::SERVER_TYPE_WEBSOCKET) {
-                echo str_pad("websocket server", 18) . '|  ' . Terminal::getColoredText("ws://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
+                echo str_pad("websocket server", $padLen) . '|  ' . Terminal::getColoredText("ws://{$this->listen}:9501", Terminal::BOLD_BLUE) . PHP_EOL;
             }
-            echo str_pad("app log path", 18) . '|  ' . (empty($this->appLogPath) ? Terminal::getColoredText("not config!", Terminal::RED) : $this->appLogPath) . PHP_EOL;
-            echo str_pad("swoole version", 18) . '|  ' . SWOOLE_VERSION . PHP_EOL;
-            echo str_pad("php version", 18) . '|  ' . PHP_VERSION . PHP_EOL;
+            echo str_pad("app log path", $padLen) . '|  ' . (empty($this->appLogPath) ? Terminal::getColoredText("not config!", Terminal::RED) : $this->appLogPath) . PHP_EOL;
+            echo str_pad("swoole version", $padLen) . '|  ' . SWOOLE_VERSION . PHP_EOL;
+            echo str_pad("php version", $padLen) . '|  ' . PHP_VERSION . PHP_EOL;
             $routes = "{$this->appRoot}/app/routes.php";
             if (!is_file($routes) && $this->serverType & self::SERVER_TYPE_HTTP) {
-                echo str_pad("warning", 18) . '|  ' . Terminal::getColoredText($routes, Terminal::RED) . " not exists!" . PHP_EOL;
+                echo str_pad("warning", $padLen) . '|  ' . Terminal::getColoredText($routes, Terminal::RED) . " not exists!" . PHP_EOL;
             }
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
@@ -399,24 +397,7 @@ class Server
             $this->loadConfig();
             //init log handler
             Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
-
             $this->atomic->add(1);
-            /**
-             * when server reload or stop, process will not exit until all timer are finished
-             * because the worker process has tick timer, such as db connection pool heartbeat check,
-             * so worker process will be force kill until swoole.max_wait_time happen.
-             *
-             * refink use swoole atomic to control when the tick timer will stop.
-             */
-            $timerId = Timer::tick(1 * 1000, function () {
-                $val = $this->atomic->get();
-                if ($val == 0 || $val > self::RELOAD_MIN_ATOMIC) {
-                    TimerManager::clearAll();
-                }
-            });
-
-            TimerManager::add($timerId);
-
             $name = "worker";
             $inTaskWorker = false;
             $taskWorkerId = $workerId - $this->swooleServer->setting['worker_num'];
@@ -481,11 +462,17 @@ class Server
         });
 
         $this->swooleServer->on('workerStop', function ($server, int $workerId) {
-            if ($workerId == 0) {
-                Gateway::unregister($this->clusterLanIP, $this->clusterLanPort);
-            }
+
         });
 
+        $this->swooleServer->on('workerExit', function ($server, int $workerId) {
+            if ($workerId == 0) {
+                go(function () {
+                    Gateway::unregister($this->clusterLanIP, $this->clusterLanPort);
+                });
+            }
+            TimerManager::clearAll();
+        });
     }
 
 
@@ -717,7 +704,6 @@ LOGO;
 
         $clusterPort->on('receive', function ($serv, $fd, $reactor_id, $data) {
             $data = Protocol::decode($data);
-            var_dump("on receive forward data");
             $data->handle($serv);
         });
     }
