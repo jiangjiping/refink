@@ -11,11 +11,10 @@ namespace Refink\Job;
 use Refink\Config;
 use Refink\Database\Pool\RedisPool;
 use Refink\Job;
-use Refink\ShouldQueue;
 
 class RedisQueue implements QueueInterface
 {
-    public function enqueue(ShouldQueue $job)
+    public function enqueue(Job $job)
     {
         return RedisPool::getConn()->lPush($this->getQueueKey($job->getGroupId() % Config::getInstance()->get('refink.queue_consumer_num')), serialize($job));
     }

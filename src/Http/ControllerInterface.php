@@ -39,15 +39,10 @@ interface ControllerInterface
     public function error($errMsg, $data = []): string;
 
     /**
-     * enqueue the job then this job will async run in queue consumer task worker
-     * @param $job
-     * @return mixed
-     */
-    public function postShouldQueueJob(ShouldQueue $job);
-
-
-    /**
-     * async post job to swoole task worker
+     * check if The job is ShouldQueue then
+     *     - enqueue the job then this job will async run in queue consumer task worker
+     * else
+     *     - async post job to swoole task worker
      * @param Job $job
      * @return mixed
      */

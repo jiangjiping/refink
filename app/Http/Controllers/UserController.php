@@ -34,10 +34,10 @@ class UserController extends Controller
         $data = [];
 
         //$data = RedisPool::getConn()->get("test_key1");
-//        for ($i = 0; $i < 10; $i++) {
-//            $job = new SyncUserInfo(666, "name_{$i}", "ok_{$i}.png", $i + 100);
-//            $this->postJob($job);
-//        }
+        for ($i = 0; $i < 10; $i++) {
+            $job = new SyncUserInfo(666, "name_{$i}", "ok_{$i}.png", $i + 100);
+            $this->postJob($job);
+        }
 //        $data['app_key'] = APP_KEY;
 //        $data['new_haha'] = "update";
 
@@ -108,7 +108,7 @@ class UserController extends Controller
 
     public function test($req)
     {
-        $job = new Push("你好啊！");
+        $job = new Push("你好啊!" . date("Y/m/d H:i:s"));
         $this->postJob($job);
         return $this->success('OK');
     }

@@ -7,7 +7,7 @@
 
 namespace Refink\Job;
 
-use Refink\ShouldQueue;
+use Refink\Job;
 
 /**
  * First-In First-Out queue
@@ -16,7 +16,7 @@ use Refink\ShouldQueue;
  */
 interface QueueInterface
 {
-    public function enqueue(ShouldQueue $job);
+    public function enqueue(Job $job);
 
     public function dequeue($grpId);
 }
