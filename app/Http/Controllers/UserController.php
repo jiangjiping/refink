@@ -108,7 +108,8 @@ class UserController extends Controller
 
     public function test($req)
     {
-        $this->push([2], "hello body!");
+        $job = new Push("你好啊！");
+        $this->postJob($job);
         return $this->success('OK');
     }
 }

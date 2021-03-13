@@ -7,7 +7,7 @@
 
 namespace Refink;
 
-use App\WebSocket\Handlers\SwooleTaskHandler;
+use App\WebSocket\Handlers\Push;
 use Refink\Cluster\Gateway;
 use Refink\Cluster\Protocol;
 use Refink\Database\Config\MySQLConfig;
@@ -385,7 +385,7 @@ class Server
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
-            SwooleTaskHandler::handle($server, $task->data);
+            $task->data->handle($server);;
         });
 
         $this->swooleServer->on('managerStart', function ($server) {

@@ -10,6 +10,7 @@ namespace Refink\Http;
 use Refink\Exception\ApiException;
 use Refink\Job;
 use Refink\Job\RedisQueue;
+use Refink\ShouldQueue;
 use Swoole\Server;
 
 class Controller implements ControllerInterface
@@ -39,7 +40,7 @@ class Controller implements ControllerInterface
         throw new ApiException($this->error($errMsg, $data));
     }
 
-    public function postJob(Job $job)
+    public function postShouldQueueJob(ShouldQueue $job)
     {
         if (is_callable(self::$jobDispatcher)) {
             call_user_func(self::$jobDispatcher);
@@ -53,8 +54,8 @@ class Controller implements ControllerInterface
         self::$swooleServer = $server;
     }
 
-    public function push(array $toUserIds, $message)
+    public function postJob(Job $job)
     {
-        self::$swooleServer->task(['uids' => $toUserIds, 'msg' => $message]);
+        self::$swooleServer->task($job);
     }
 }

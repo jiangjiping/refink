@@ -10,6 +10,7 @@ namespace Refink\Http;
 
 use Refink\Exception\ApiException;
 use Refink\Job;
+use Refink\ShouldQueue;
 
 interface ControllerInterface
 {
@@ -38,19 +39,17 @@ interface ControllerInterface
     public function error($errMsg, $data = []): string;
 
     /**
-     * enqueue the job then dispatch
-     * this job will run in queue consumer task worker
+     * enqueue the job then this job will async run in queue consumer task worker
      * @param $job
      * @return mixed
      */
-    public function postJob(Job $job);
+    public function postShouldQueueJob(ShouldQueue $job);
 
 
     /**
-     * push message to websocket client
-     * @param array $toUserIds
-     * @param $message
+     * async post job to swoole task worker
+     * @param Job $job
      * @return mixed
      */
-    public function push(array $toUserIds, $message);
+    public function postJob(Job $job);
 }

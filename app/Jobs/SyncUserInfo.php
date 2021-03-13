@@ -12,7 +12,7 @@ use Refink\Database\Pool\MySQLPool;
 use Refink\Job;
 use Refink\Log\Logger;
 
-class SyncUserInfo implements Job
+class SyncUserInfo implements Job, Job\ShouldQueue
 {
 
     private $userId;
@@ -28,7 +28,7 @@ class SyncUserInfo implements Job
         $this->time = $time;
     }
 
-    public function handle()
+    public function handle(\Swoole\Server $server = null)
     {
         $pdo = MySQLPool::getConn();
         Logger::getInstance()->info("good job ....");

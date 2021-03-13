@@ -7,10 +7,12 @@
 
 namespace Refink;
 
-
+/**
+ * Interface Job
+ * running in normal swoole task worker
+ * @package Refink
+ */
 interface Job
 {
-    public function getGroupId();
-
-    public function handle();
+    public function handle(\Swoole\Server $server = null);
 }
