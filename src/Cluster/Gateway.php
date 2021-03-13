@@ -1,6 +1,7 @@
 <?php
 /**
  * Gateway use to control cluster's all node server
+ * and use redis to store cluster data.
  * Created by PhpStorm.
  * User: randy
  * Date: 2021/3/11
@@ -10,6 +11,7 @@ namespace Refink\Cluster;
 
 
 use Refink\Database\Pool\RedisPool;
+use Refink\Job;
 use Refink\Log\Logger;
 use Refink\TimerManager;
 use Swoole\Client;
@@ -62,14 +64,14 @@ class Gateway
 
     /**
      * forward message to some target
-     * @param $message
+     * @param $data
      * @param array $targetNodes eg: array("192.168.2.100:9600","192.168.2.101:9600"), if empty then forward to all other nodes in the cluster
      * @param
      */
-    public static function forward($message, array $targetNodes = [])
+    public static function forward(Job $data, array $targetNodes = [])
     {
         empty($targetNodes) && $targetNodes = self::getAllNodes();
-        $message = Protocol::encode($message);
+        $data = Protocol::encode($data);
         foreach ($targetNodes as $node) {
             list($ip, $port) = explode(':', $node, 2);
             if (!isset(self::$nodeTcpClients[$node])) {
@@ -80,7 +82,7 @@ class Gateway
                     continue;
                 }
                 self::$nodeTcpClients[$node] = $cli;
-                self::$nodeTcpClients[$node]->send($message);
+                self::$nodeTcpClients[$node]->send($data);
             }
         }
 
@@ -129,5 +131,48 @@ class Gateway
             $redis->select(REDIS['db']);
         }
         $redis->sRem(self::RDS_KEY_CLUSTER, "$lanIP:$lanPort");
+    }
+
+    private static function getRdsKeyUidBindFd($userId)
+    {
+        return "refink:cluster:uid_bind_fd:$userId:k";
+    }
+
+    private static function getRdsKeyFdBindUid($lanIP, $lanPort, $fd)
+    {
+        return "refink:cluster:fd_bind_uid:$lanIP:$lanPort:$fd:k";
+    }
+
+    /**
+     * bind userId in the cluster
+     * @param $userId
+     * @param $lanIP
+     * @param $lanPort
+     * @param $fd
+     */
+    public static function bind($userId, $lanIP, $lanPort, $fd)
+    {
+        RedisPool::getConn()->set(self::getRdsKeyUidBindFd($userId), "$lanIP:$lanPort:$fd");
+        RedisPool::getConn()->set(self::getRdsKeyFdBindUid($lanIP, $lanPort, $fd), $userId);
+    }
+
+    public static function unbind($lanIP, $lanPort, $fd)
+    {
+        $userId = self::getUserId($lanIP, $lanPort, $fd);
+        RedisPool::getConn()->del(self::getRdsKeyFdBindUid($lanIP, $lanPort, $fd), self::getRdsKeyUidBindFd($userId));
+    }
+
+    public static function getUserId($lanIP, $lanPort, $fd)
+    {
+        return RedisPool::getConn()->get(self::getRdsKeyFdBindUid($lanIP, $lanPort, $fd));
+    }
+
+    /**
+     * @param $userId
+     * @return bool|mixed|string eg. lanIP:lanPort:fd
+     */
+    public static function getUserSocket($userId)
+    {
+        return RedisPool::getConn()->get(self::getRdsKeyUidBindFd($userId));
     }
 }

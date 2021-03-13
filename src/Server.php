@@ -504,7 +504,12 @@ class Server
         }
 
         Config::getInstance([
-            'refink' => array_merge($this->swooleServer->setting, ['queue_consumer_num' => $this->queueConsumerNum])
+            'swoole' => $this->swooleServer->setting,
+            'refink' => [
+                'queue_consumer_num' => $this->queueConsumerNum,
+                'lan_ip'             => (string)$this->clusterLanIP,
+                'lan_port'           => (int)$this->clusterLanPort
+            ]
         ]);
     }
 
@@ -712,7 +717,8 @@ LOGO;
 
         $clusterPort->on('receive', function ($serv, $fd, $reactor_id, $data) {
             $data = Protocol::decode($data);
-
+            var_dump("on receive forward data");
+            $data->handle($serv);
         });
     }
 
