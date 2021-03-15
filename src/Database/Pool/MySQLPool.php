@@ -9,42 +9,20 @@ namespace Refink\Database\Pool;
 
 
 use Refink\Database\Config\AbstractConfig;
-use Swoole\Coroutine\Channel;
 
 class MySQLPool extends AbstractPool
 {
     use Common;
 
+    private static $pools;
+
     protected $config;
-
-    protected static $size;
-
-    private function __construct($size, AbstractConfig $config, $name = "default")
-    {
-        $size < 1 && $size = 1;
-        $this->pool = new Channel($size);
-        $nowTime = time();
-        $this->buildConfig($config);
-        for ($i = 0; $i < $size; $i++) {
-            $this->connect($nowTime);
-        }
-        $this->heartbeat();
-    }
-
-    private function __clone()
-    {
-    }
 
     public static function initPool($size, AbstractConfig $config, $name = "default")
     {
         if (!isset(self::$pools[$name])) {
             self::$pools[$name] = new static($size, $config, $name);
         }
-    }
-
-    public static function getInstance($name)
-    {
-        return self::$pools[$name]->pool;
     }
 
     private function buildConfig(AbstractConfig $config)
@@ -57,12 +35,22 @@ class MySQLPool extends AbstractPool
         ];
     }
 
-    public function connect(int $nowTime)
+    public function tryConnect(int $nowTime)
     {
-        $pdo = new \PDO($this->config['dsn'], $this->config['username'], $this->config['passwd'], $this->config['options']);
-        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        $conn = new Connection($pdo, $nowTime);
-        $this->pool->push($conn);
+        if ($this->connNum >= $this->size) {
+            return;
+        }
+        try {
+            //coroutine context will switch, so need incr connNum first.
+            $this->connNum++;
+            $pdo = new \PDO($this->config['dsn'], $this->config['username'], $this->config['passwd'], $this->config['options']);
+            $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            $conn = new Connection($pdo, $nowTime);
+            $this->pool->push($conn);
+        } catch (\Throwable $e) {
+            $this->connNum--;
+            throw $e;
+        }
     }
 
 

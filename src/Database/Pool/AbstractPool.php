@@ -26,6 +26,18 @@ abstract class AbstractPool
      */
     protected $pool;
 
+    /**
+     * the pool size
+     * @var integer
+     */
+    protected $size;
+
+    /**
+     * the total number of current connecting
+     * @var integer
+     */
+    protected $connNum;
+
     abstract public static function initPool($size, AbstractConfig $config, $name = "default");
 
     abstract public static function getInstance($name);
@@ -57,7 +69,11 @@ abstract class AbstractPool
                     continue;
                 }
                 if ($conn->isExpired($nowTime)) {
-                    static::connect($nowTime);
+                    $conn = null;
+                    if (static::decrConnNum() == 1) {
+                        static::tryConnect($nowTime);
+                    }
+
                     continue;
                 }
                 $conn->setLastHeartbeat($nowTime);
@@ -69,6 +85,11 @@ abstract class AbstractPool
         TimerManager::add($timerId);
     }
 
-    //create a new connection
-    abstract public function connect(int $nowTime);
+    //try to create a new connection
+    abstract public function tryConnect(int $nowTime);
+
+    /**
+     * @return integer
+     */
+    abstract public function decrConnNum(): int;
 }

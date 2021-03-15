@@ -19,24 +19,6 @@ class RedisPool extends AbstractPool
 
     protected $config;
 
-    public function __construct($size, AbstractConfig $config, $name = "default")
-    {
-        $this->pool = new Channel($size);
-        $nowTime = time();
-        $this->buildConfig($config);
-
-        for ($i = 0; $i < $size; $i++) {
-            $this->connect($nowTime);
-        }
-        $this->heartbeat();
-
-        self::$pools[$name] = $this->pool;
-    }
-
-    private function __clone()
-    {
-    }
-
     public static function initPool($size, AbstractConfig $config, $name = "default")
     {
         if (!isset(self::$pools[$name])) {
@@ -54,18 +36,30 @@ class RedisPool extends AbstractPool
         ];
     }
 
-    public function connect(int $nowTime)
+    public function tryConnect(int $nowTime)
     {
-        $redis = new \Redis();
-        $redis->connect($this->config['host'], $this->config['port']);
-        if (!empty($this->config['passwd'])) {
-            $redis->auth($this->config['passwd']);
+        if ($this->connNum >= $this->size) {
+            return;
         }
-        if ($this->config['db'] > 0) {
-            $redis->select($this->config['db']);
+        try {
+            //coroutine context will switch, so need incr connNum first.
+            $this->connNum++;
+            $redis = new \Redis();
+            $redis->connect($this->config['host'], $this->config['port']);
+            if (!empty($this->config['passwd'])) {
+                $redis->auth($this->config['passwd']);
+            }
+            if ($this->config['db'] > 0) {
+                $redis->select($this->config['db']);
+            }
+            $conn = new Connection($redis, $nowTime);
+            $this->pool->push($conn);
+        } catch (\Throwable $e) {
+            $this->connNum--;
+            throw $e;
         }
-        $conn = new Connection($redis, $nowTime);
-        $this->pool->push($conn);
+
+
     }
 
 
@@ -76,10 +70,5 @@ class RedisPool extends AbstractPool
     public static function getConn($name = "default")
     {
         return self::getConnection($name);
-    }
-
-    public static function getInstance($name)
-    {
-        return self::$pools[$name]->pool;
     }
 }
