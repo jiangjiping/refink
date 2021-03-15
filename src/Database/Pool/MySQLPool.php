@@ -40,12 +40,15 @@ class MySQLPool extends AbstractPool
         if ($this->connNum >= $this->size) {
             return;
         }
+
         try {
             //coroutine context will switch, so need incr connNum first.
             $this->connNum++;
             $pdo = new \PDO($this->config['dsn'], $this->config['username'], $this->config['passwd'], $this->config['options']);
             $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-            $conn = new Connection($pdo, $nowTime);
+            $conn = new Connection($pdo, $nowTime, function (\PDO $pdo) {
+                $pdo->query("SELECT 1")->fetchColumn();
+            });
             $this->pool->push($conn);
         } catch (\Throwable $e) {
             $this->connNum--;

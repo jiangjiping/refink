@@ -8,6 +8,8 @@
 namespace Refink\Job;
 
 
+use Swoole\Coroutine\Channel;
+
 class JobChannel
 {
     /**
@@ -26,12 +28,12 @@ class JobChannel
 
     /**
      * @param $uniqueKey
-     * @return \Swoole\Coroutine\Channel
+     * @return Channel
      */
     public static function getInstance($uniqueKey)
     {
         if (!isset(self::$channels[$uniqueKey])) {
-            self::$channels[$uniqueKey] = new \Swoole\Coroutine\Channel(1);
+            self::$channels[$uniqueKey] = new Channel(1);
         }
         return self::$channels[$uniqueKey];
     }

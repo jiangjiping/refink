@@ -44,22 +44,11 @@ trait Common
     {
         $cid = \co::getCid();
         $nowTime = time();
-        //multi times invoke at the same coroutine context
+        //multi times invoke "getConnection" at the same coroutine context
         if (isset(self::$coroutineContext[$cid])) {
-            /** @var Connection $conn */
-            $conn = self::$coroutineContext[$cid];
-            //check expired for when the process only have on coroutine
-            if ($conn->isExpired($nowTime)) {
-                $conn = null;
-                self::$pools[$name]->decrConnNum();
-                self::$pools[$name]->tryConnect($nowTime);
-                goto GET_NEW_CONN;
-            }
-            return $conn->getDbCli();
+            return self::$coroutineContext[$cid]->getDbCli();
         }
 
-        GET_NEW_CONN:
-        //check if pool size reach max
         if (self::getInstance($name)->isEmpty()) {
             self::$pools[$name]->tryConnect($nowTime);
         }
@@ -70,6 +59,7 @@ trait Common
             self::getInstance($name)->push($conn);
             unset(self::$coroutineContext[$cid]);
         });
+        $conn->setActive($nowTime);
         return $conn->getDbCli();
     }
 

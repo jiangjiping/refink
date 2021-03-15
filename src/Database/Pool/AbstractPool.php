@@ -36,7 +36,7 @@ abstract class AbstractPool
      * the total number of current connecting
      * @var integer
      */
-    protected $connNum;
+    protected $connNum = 0;
 
     abstract public static function initPool($size, AbstractConfig $config, $name = "default");
 
@@ -55,7 +55,7 @@ abstract class AbstractPool
     public function heartbeat()
     {
         //check pool per minute
-        $timerId = Timer::tick(60 * 1000, function () {
+        $timerId = Timer::tick(Connection::MAX_IDLE_TIME * 1000, function () {
             $nowTime = time();
             //pool empty tell us that: all the connections are busy, so all connection are alive
             if ($this->pool->isEmpty()) {
@@ -64,19 +64,21 @@ abstract class AbstractPool
             $length = $this->pool->length();
             for ($i = 0; $i < $length; $i++) {
                 /** @var Connection $conn */
-                $conn = $this->pool->pop(0.1);
+                $conn = $this->pool->pop(0.01);
                 if (empty($conn)) {
                     continue;
                 }
                 if ($conn->isExpired($nowTime)) {
+                    $conn->destroy();
                     $conn = null;
-                    if (static::decrConnNum() == 1) {
+                    if (static::decrConnNum() == 0) {
+                        //keep min
                         static::tryConnect($nowTime);
                     }
-
                     continue;
                 }
-                $conn->setLastHeartbeat($nowTime);
+                $conn->ping();
+                $conn->setActive($nowTime);
                 $this->pool->push($conn);
             }
 

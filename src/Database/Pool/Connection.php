@@ -10,22 +10,31 @@ namespace Refink\Database\Pool;
 
 class Connection
 {
+    /**
+     * idle max seconds
+     * @var integer
+     */
     const MAX_IDLE_TIME = 60;
 
     /**
-     * @var mixed the connected database client object
+     * the connected database client object
+     * @var mixed
      */
     private $dbClient;
 
     /**
-     * @var integer the last heartbeat timestamp
+     * connection's last active time
+     * @var integer
      */
-    private $lastHeartbeat;
+    private $lastActiveTime;
 
-    public function __construct($dbClient, $nowTime)
+    private $pingFunc;
+
+    public function __construct($dbClient, $nowTime, $pingFunc)
     {
-        $this->lastHeartbeat = $nowTime;
+        $this->lastActiveTime = $nowTime;
         $this->dbClient = $dbClient;
+        $this->pingFunc = $pingFunc;
     }
 
     public function getDbCli()
@@ -40,11 +49,24 @@ class Connection
      */
     public function isExpired(int $nowTime)
     {
-        return $nowTime - $this->lastHeartbeat > self::MAX_IDLE_TIME;
+        return $nowTime - $this->lastActiveTime > self::MAX_IDLE_TIME;
     }
 
-    public function setLastHeartbeat($ts)
+    public function setActive($ts)
     {
-        $this->lastHeartbeat = $ts;
+        $this->lastActiveTime = $ts;
+    }
+
+    public function destroy()
+    {
+        if (is_callable([$this->dbClient, 'close'])) {
+            $this->dbClient->close();
+        }
+        $this->dbClient = null;
+    }
+
+    public function ping()
+    {
+        call_user_func($this->pingFunc, $this->dbClient);
     }
 }

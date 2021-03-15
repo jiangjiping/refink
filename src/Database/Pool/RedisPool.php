@@ -52,7 +52,9 @@ class RedisPool extends AbstractPool
             if ($this->config['db'] > 0) {
                 $redis->select($this->config['db']);
             }
-            $conn = new Connection($redis, $nowTime);
+            $conn = new Connection($redis, $nowTime, function (\Redis $redis) {
+                $redis->ping();
+            });
             $this->pool->push($conn);
         } catch (\Throwable $e) {
             $this->connNum--;
