@@ -422,8 +422,8 @@ class Server
             }
 
             if ($inTaskWorker && !is_null($this->queueDriver)) {
-                $jobWorkerId = $taskWorkerId - $this->queueConsumerNum;
-                if ($jobWorkerId >= 0) {
+                $jobWorkerId = $taskWorkerId;
+                if ($jobWorkerId < $this->queueConsumerNum) {
                     $context = [];
                     cli_set_process_title("$this->appName: task worker (queue consumer)");
                     //save queue consumer worker pid
