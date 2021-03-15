@@ -27,6 +27,7 @@ use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Process;
 use Swoole\Server\Task;
+use Swoole\Table;
 
 \co::set(['hook_flags' => SWOOLE_HOOK_ALL]);
 
@@ -194,9 +195,10 @@ class Server
     private $clusterLanPort;
 
     /**
-     * @var Atomic
+     * use swoole table to store queue consumer worker pid
+     * @var Table
      */
-    private $atomic;
+    private $queueConsumerPidMap;
 
     /**
      * Server constructor
@@ -397,7 +399,7 @@ class Server
             $this->loadConfig();
             //init log handler
             Logger::getInstance($this->appLogPath, $this->appLogHandler, $this->appName);
-            $this->atomic->add(1);
+
             $name = "worker";
             $inTaskWorker = false;
             $taskWorkerId = $workerId - $this->swooleServer->setting['worker_num'];
@@ -424,13 +426,12 @@ class Server
                 if ($jobWorkerId >= 0) {
                     $context = [];
                     cli_set_process_title("$this->appName: task worker (queue consumer)");
-                    //use swoole atomic to control when loop will stop
+                    //save queue consumer worker pid
+                    $pid = (string)posix_getpid();
+                    $this->queueConsumerPidMap->set($pid, array('pid' => (int)$pid));
                     $running = true;
                     while ($running) {
-                        $getAtomic = $this->atomic->get();
-                        if ($getAtomic == 0 || $getAtomic > self::RELOAD_MIN_ATOMIC) {
-                            $running = false;
-                        }
+                        $running = $this->queueConsumerPidMap->exist($pid);
                         $job = $this->queueDriver->dequeue($jobWorkerId);
                         if (empty($job)) {
                             \co::sleep(0.2);
@@ -708,6 +709,17 @@ LOGO;
         });
     }
 
+    private function clearQueueConsumerWorkerPids()
+    {
+        $pidSet = [];
+        foreach ($this->queueConsumerPidMap as $row) {
+            $pidSet[] = $row['pid'];
+        }
+        foreach ($pidSet as $pid) {
+            $this->queueConsumerPidMap->del($pid);
+        }
+    }
+
     public function run()
     {
         if (!$this->checkEnv($configFile)) {
@@ -721,12 +733,12 @@ LOGO;
         $this->swooleServer->set($this->settings);
         //stop
         Process::signal(SIGRTMIN + 1, function () {
-            $this->atomic->set(0);
+            $this->clearQueueConsumerWorkerPids();
             $this->swooleServer->shutdown();
         });
         //reload
         Process::signal(SIGRTMIN + 2, function () {
-            $this->atomic->set(self::RELOAD_MIN_ATOMIC);
+            $this->clearQueueConsumerWorkerPids();
             $this->swooleServer->reload();
         });
 
@@ -735,10 +747,15 @@ LOGO;
         //display logo
         empty($this->settings['daemonize']) && $this->showLogo();
 
-        $this->atomic = new Atomic();
+        //use swoole table to control looping queue consumer task worker reload or stop
+        $this->queueConsumerPidMap = new Table($this->queueConsumerNum);
+        $this->queueConsumerPidMap->column('pid', Table::TYPE_INT, 4);
+        $this->queueConsumerPidMap->create();
 
         $this->swooleServer->start();
     }
+
+
 }
 
 
