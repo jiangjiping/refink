@@ -7,8 +7,6 @@
 
 namespace Refink;
 
-
-use Refink\Log\Logger;
 use Swoole\Timer;
 
 class TimerManager
