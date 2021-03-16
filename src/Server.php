@@ -418,13 +418,12 @@ class Server
             cli_set_process_title("$this->appName: {$name}");
             if (is_callable($this->redisPoolCreateFunc)) {
                 call_user_func($this->redisPoolCreateFunc, new RedisConfig(REDIS['host'], REDIS['port'], REDIS['passwd'], REDIS['db']));
+                if ($workerId == 0) {
+                    Gateway::register($this->clusterLanIP, $this->clusterLanPort);
+                }
             }
             if (is_callable($this->mysqlPoolCreateFunc)) {
                 call_user_func($this->mysqlPoolCreateFunc, new MySQLConfig(MYSQL['host'], MYSQL['port'], MYSQL['db_name'], MYSQL['username'], MYSQL['passwd'], MYSQL['options']));
-            }
-
-            if ($workerId == 0) {
-                Gateway::register($this->clusterLanIP, $this->clusterLanPort);
             }
 
             if ($inTaskWorker && !is_null($this->queueDriver)) {
@@ -467,7 +466,7 @@ class Server
         });
 
         $this->swooleServer->on('workerExit', function ($server, int $workerId) {
-            if ($workerId == 0) {
+            if ($workerId == 0 && is_callable($this->redisPoolCreateFunc)) {
                 go(function () {
                     Gateway::unregister($this->clusterLanIP, $this->clusterLanPort);
                 });
