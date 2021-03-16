@@ -381,7 +381,9 @@ class Server
                 echo str_pad("warning", $padLen) . '|  ' . Terminal::getColoredText($routes, Terminal::RED) . " not exists!" . PHP_EOL;
             }
             Terminal::echoTableLine();
-            echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
+            if (empty($this->settings['daemonize'])) {
+                echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
+            }
             //stop
             Process::signal(SIGRTMIN + 1, function () {
                 $this->clearQueueConsumerWorkerPids();

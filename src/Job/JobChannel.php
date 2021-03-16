@@ -27,21 +27,21 @@ class JobChannel
     }
 
     /**
-     * @param $uniqueKey
+     * @param $lockKey
      * @return Channel
      */
-    public static function getInstance($uniqueKey)
+    public static function getInstance($lockKey)
     {
-        if (!isset(self::$channels[$uniqueKey])) {
-            self::$channels[$uniqueKey] = new Channel(1);
+        if (!isset(self::$channels[$lockKey])) {
+            self::$channels[$lockKey] = new Channel(1);
         }
-        return self::$channels[$uniqueKey];
+        return self::$channels[$lockKey];
     }
 
-    public static function remove($uniqueKey)
+    public static function remove($lockKey)
     {
-        if (isset(self::$channels[$uniqueKey])) {
-            unset(self::$channels[$uniqueKey]);
+        if (isset(self::$channels[$lockKey])) {
+            unset(self::$channels[$lockKey]);
         }
     }
 }
