@@ -2,7 +2,7 @@
 ### Refink协程框架特性
 
  - 支持基于http的restful api接口，自带类似laravel的静态路由、中间件
- - 支持websocket消息路由(类似http的url路由)。只需要在对于的handler下写业务代码
+ - 支持websocket单机或集群的消息路由(类似http的url路由)。只需要在对应的handler下写业务代码
  - 支持分布式生产端异步派发任务 (具体配置和使用见下文)
  - 支持数据库连接池, 连接池的连接都是有心跳检测自动保活机制，当前进支持redis和mysql
  - 高性能：和原生swoole非常接近，因为框架代码极其精简，带来的性能损耗忽略不计
