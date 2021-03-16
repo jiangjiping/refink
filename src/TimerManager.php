@@ -25,7 +25,6 @@ class TimerManager
     public static function clearAll()
     {
         foreach (self::$timerIds as $timerId => $val) {
-            Logger::getInstance()->info("clear timer {$timerId}");
             Timer::clear($timerId);
         }
     }
