@@ -99,12 +99,6 @@ class Server
     private $jobConcurrentNum = 1024;
 
     /**
-     * control if the job is sequential running
-     * @var boolean
-     */
-    private $jobSequential;
-
-    /**
      * Application name. the terminal process title prefix will use it.
      * @var string
      */
@@ -449,10 +443,6 @@ class Server
                             \co::sleep(0.2);
                             continue;
                         }
-
-                        //main coroutine dispatch job to user queue, this step like lock
-                        $this->jobSequential && JobChannel::getInstance($job->getGroupId())->push($job);
-
                         //control the peak coroutine number
                         while (count($context) > $this->jobConcurrentNum) {
                             \co::sleep(0.02);
@@ -461,8 +451,6 @@ class Server
                             $cid = \co::getCid();
                             $context[$cid] = 1;
                             defer(function () use ($cid, $job, &$context) {
-                                //this step like unlock
-                                $this->jobSequential && JobChannel::getInstance($job->getGroupId())->pop();
                                 unset($context[$cid]);
                             });
                             $job->handle();
@@ -646,15 +634,13 @@ LOGO;
      * @param QueueInterface $driver if you want to
      * @param int $queueConsumerNum how many task workers used for queue consume
      * @param int $jobConcurrentNum how many job can concurrent running
-     * @param bool $jobSequential to control the job processing in Sequential
      * @return $this
      */
-    public function setQueueDriver(QueueInterface $driver, $queueConsumerNum = 4, $jobConcurrentNum = 1024, $jobSequential = true)
+    public function setQueueDriver(QueueInterface $driver, $queueConsumerNum = 4, $jobConcurrentNum = 1024)
     {
         $this->queueDriver = $driver;
         $this->queueConsumerNum = $queueConsumerNum;
         $this->jobConcurrentNum = $jobConcurrentNum;
-        $this->jobSequential = $jobSequential;
         return $this;
     }
 
