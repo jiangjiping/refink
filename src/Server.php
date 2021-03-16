@@ -382,6 +382,16 @@ class Server
             }
             Terminal::echoTableLine();
             echo str_pad("press " . Terminal::getColoredText("CTRL + C", Terminal::BOLD_MAGENTA) . " to stop.", 20) . PHP_EOL;
+            //stop
+            Process::signal(SIGRTMIN + 1, function () {
+                $this->clearQueueConsumerWorkerPids();
+                $this->swooleServer->shutdown();
+            });
+            //reload
+            Process::signal(SIGRTMIN + 2, function () {
+                $this->clearQueueConsumerWorkerPids();
+                $this->swooleServer->reload();
+            });
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
@@ -731,17 +741,6 @@ LOGO;
         }
 
         $this->swooleServer->set($this->settings);
-        //stop
-        Process::signal(SIGRTMIN + 1, function () {
-            $this->clearQueueConsumerWorkerPids();
-            $this->swooleServer->shutdown();
-        });
-        //reload
-        Process::signal(SIGRTMIN + 2, function () {
-            $this->clearQueueConsumerWorkerPids();
-            $this->swooleServer->reload();
-        });
-
         //save master process pid
         file_put_contents($this->settings['pid_file'], posix_getpid());
         //display logo
