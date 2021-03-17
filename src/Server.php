@@ -390,7 +390,7 @@ class Server
         });
 
         $this->swooleServer->on('task', function ($server, Task $task) {
-            $task->data->handle($server);;
+            $task->data->handle($server);
         });
 
         $this->swooleServer->on('managerStart', function ($server) {
