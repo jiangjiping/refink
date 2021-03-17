@@ -18,11 +18,10 @@ use Refink\Exception\ErrorHandler;
 use Refink\Exception\MiddlewareException;
 use Refink\Http\Controller;
 use Refink\Http\Route;
-use Refink\Job\JobChannel;
 use Refink\Job\QueueInterface;
 use Refink\Log\Logger;
 use Refink\WebSocket\Dispatcher;
-use Swoole\Atomic;
+use Swoole\Coroutine\Channel;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Process;
@@ -96,7 +95,7 @@ class Server
      * control how many jobs can concurrent running
      * @var int
      */
-    private $jobConcurrentNum = 1024;
+    private $jobConcurrentNum = 512;
 
     /**
      * Application name. the terminal process title prefix will use it.
@@ -429,12 +428,15 @@ class Server
             if ($inTaskWorker && !is_null($this->queueDriver)) {
                 $jobWorkerId = $taskWorkerId;
                 if ($jobWorkerId < $this->queueConsumerNum) {
-                    $context = [];
                     cli_set_process_title("$this->appName: task worker (queue consumer)");
                     //save queue consumer worker pid
                     $pid = (string)posix_getpid();
                     $this->queueConsumerPidMap->set($pid, array('pid' => (int)$pid));
                     $running = true;
+                    $jobChannels = new Channel($this->jobConcurrentNum);
+                    for ($i = 0; $i < $this->jobConcurrentNum; $i++) {
+                        $jobChannels->push(1);
+                    }
                     while ($running) {
                         $running = $this->queueConsumerPidMap->exist($pid);
                         $job = $this->queueDriver->dequeue($jobWorkerId);
@@ -443,20 +445,15 @@ class Server
                             continue;
                         }
                         //control the peak coroutine number
-                        while (count($context) > $this->jobConcurrentNum) {
-                            \co::sleep(0.02);
-                        }
-                        go(function () use ($job, &$context) {
-                            $cid = \co::getCid();
-                            $context[$cid] = 1;
-                            defer(function () use ($cid, $job, &$context) {
-                                unset($context[$cid]);
+                        $jobChannels->pop();
+                        go(function () use ($job, $jobChannels) {
+                            defer(function () use ($jobChannels) {
+                                $jobChannels->push(1);
                             });
                             $job->handle();
                         });
                     }
                 }
-                //for onTask
             }
 
         });
